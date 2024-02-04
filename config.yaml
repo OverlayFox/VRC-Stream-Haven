@@ -1,11 +1,11 @@
 nodes:
-  - node: 1
+  - node: 0
     publicIpAddress: "192.168.0.3"
-    publicPort: "554"
+    publicPort: "8554"
     latitude:
     longitude:
-  - node: 2
+  - node: 1
     publicIpAddress: "192.168.0.44"
-    publicPort: "554"
+    publicPort: "8554"
     latitude:
     longitude:
