@@ -2,15 +2,91 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
-	"io"
+	"sync"
 
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/oschwald/geoip2-golang"
+	"github.com/kellydunn/golang-geo"
 	"github.com/sirupsen/logrus"
 )
 
 var logger logrus.Logger
 var ipDb geoip2.Reader
+
+type Config struct {
+	nodes []struct {
+		publicIpAddress string
+		publicPort      string
+		CountryIso      string
+		PostCode        string
+	}
+}
+
+type serverHandler struct {
+	s         *gortsplib.Server
+	mutex     sync.Mutex
+	stream    *gortsplib.ServerStream
+	publisher *gortsplib.ServerSession
+}
+
+func (sh *serverHandler) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
+	log.Printf("session closed")
+
+	sh.mutex.Lock()
+	defer sh.mutex.Unlock()
+
+	if sh.stream != nil && ctx.Session == sh.publisher {
+		sh.stream.Close()
+		sh.stream = nil
+	}
+}
+
+func locateClient(ctx *gortsplib.ServerHandlerOnSetupCtx)(string) {
+	var rerouteAddress string
+
+	location, err := ipDb.City(net.ParseIP(ctx.Conn.NetConn().RemoteAddr().String()))
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"error": err,
+		}).Error("Could not locate IP-Address of incoming connection defaulting to base server")
+	}
+	fmt.Printf("Connection is coming from %s in %s\n", location.Postal.Code, location.Country.IsoCode)
+
+	clientGeo := geo.NewPoint(location.Location.Latitude, location.Location.Longitude)
+	nodeGeo := geoco
+}
+
+func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+	log.Printf("setup request")
+
+	if sh.stream == nil {
+		return &base.Response{
+			StatusCode: base.StatusNotFound,
+		}, nil, nil
+	}
+
+	
+
+	cSeq := ctx.Request.Header["CSeq"]
+
+	if len(cSeq) <= 0 || rerouteAddress == "" || location.Postal.Code == "same as yours" {
+		return &base.Response{
+			StatusCode: base.StatusOK,
+		}, sh.stream, nil
+	}
+
+	return &base.Response{
+		StatusCode:    base.StatusFound,
+		StatusMessage: "RTSP/2.0 302 Found closer node. Redirecting for load balancing",
+		Header: base.Header{
+			"CSeq":     []string{cSeq[0]},
+			"Location": []string{rerouteAddress},
+		},
+	}, sh.stream, nil
+}
 
 func init() {
 	logger := logrus.New()
@@ -29,60 +105,37 @@ func init() {
 	defer db.Close()
 }
 
-func handleConnection(client net.Conn, targetAddr string) {
-	defer client.Close()
-
-	target, err := net.Dial("tcp", targetAddr)
-	if err != nil {
-		fmt.Println("Error connecting to target:", err)
-		return
+func main() {
+	h := &serverHandler{}
+	h.s = &gortsplib.Server{
+		Handler:           h,
+		RTSPAddress:       ":8554",
+		UDPRTPAddress:     ":8000",
+		UDPRTCPAddress:    ":8001",
+		MulticastIPRange:  "224.1.0.0/16",
+		MulticastRTPPort:  8002,
+		MulticastRTCPPort: 8003,
 	}
-	defer target.Close()
 
-	// Perform bidirectional copying
-	go func() {
-		_, err := io.Copy(target, client)
-		if err != nil {
-			fmt.Println("Error copying from client to target:", err)
-		}
-	}()
-
-	_, err = io.Copy(client, target)
-	if err != nil {
-		fmt.Println("Error copying from target to client:", err)
-	}
+	log.Printf("server is ready")
+	panic(h.s.StartAndWait())
 }
 
-func main() {
-	listener, err := net.Listen("tcp", ":8080")
+func handleRTSPConnection(conn net.Conn) {
+	defer conn.Close()
+
+	ipAddress, err := ipDb.Country(net.ParseIP(conn.RemoteAddr().String()))
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"error": err,
-		}).Fatal("Couldn't listen on port 8080/tcp")
+		}).Error("Could not locate IP-Address of incoming connection")
 		return
 	}
-	defer listener.Close()
+	fmt.Printf("Connection is coming from %s\n", ipAddress.Country.IsoCode)
 
-	logger.Info("Started listening on Port 8080/tcp")
-
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"error": err,
-			}).Error("Couldn't accept incoming connection")
-			continue
-		}
-
-		record, err := ipDb.Country(net.ParseIP(conn.RemoteAddr().String()))
-		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"error": err,
-			}).Error("Could not locate IP-Address of incoming connection")
-			continue
-		}
-
-		fmt.Printf("Connection is coming from %s\n", record.Country.IsoCode)
-		conn.Close()
+	session := gortsplib.ServerSession()
+	if err != nil {
+		log.Println("Error creating RTSP session:", err)
+		return
 	}
 }
