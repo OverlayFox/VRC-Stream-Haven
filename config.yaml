@@ -2,10 +2,10 @@ nodes:
   - node: 1
     publicIpAddress: "192.168.0.3"
     publicPort: "554"
-    CountryIso: "DE"
-    PostCode: "65183"
+    latitude:
+    longitude:
   - node: 2
     publicIpAddress: "192.168.0.44"
     publicPort: "554"
-    CountryIso: "GB"
-    PostCode: "CA657Z"
+    latitude:
+    longitude:

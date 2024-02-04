@@ -8,9 +8,10 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/oschwald/geoip2-golang"
-	"github.com/kellydunn/golang-geo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 var logger logrus.Logger
@@ -20,13 +21,15 @@ type Config struct {
 	nodes []struct {
 		publicIpAddress string
 		publicPort      string
-		CountryIso      string
-		PostCode        string
+		latitude        float64
+		longitude       float64
 	}
 }
 
+var config Config
+
 type serverHandler struct {
-	s         *gortsplib.Server
+	server    *gortsplib.Server
 	mutex     sync.Mutex
 	stream    *gortsplib.ServerStream
 	publisher *gortsplib.ServerSession
@@ -44,19 +47,36 @@ func (sh *serverHandler) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionClo
 	}
 }
 
-func locateClient(ctx *gortsplib.ServerHandlerOnSetupCtx)(string) {
-	var rerouteAddress string
-
+func locateClient(ctx *gortsplib.ServerHandlerOnSetupCtx) *string {
 	location, err := ipDb.City(net.ParseIP(ctx.Conn.NetConn().RemoteAddr().String()))
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"error": err,
 		}).Error("Could not locate IP-Address of incoming connection defaulting to base server")
+		return nil
 	}
 	fmt.Printf("Connection is coming from %s in %s\n", location.Postal.Code, location.Country.IsoCode)
 
 	clientGeo := geo.NewPoint(location.Location.Latitude, location.Location.Longitude)
-	nodeGeo := geoco
+
+	var distance float64
+	var chosenNode struct {
+		publicIpAddress string
+		publicPort      string
+		latitude        float64
+		longitude       float64
+	}
+	for _, node := range config.nodes {
+		calculatedDistance := clientGeo.GreatCircleDistance(geo.NewPoint(node.latitude, node.longitude))
+
+		if distance <= 0 || distance > calculatedDistance {
+			distance = calculatedDistance
+			chosenNode = node
+			continue
+		}
+	}
+
+	return chosenNode.publicIpAddress + ":" + chosenNode.publicPort
 }
 
 func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
@@ -67,8 +87,6 @@ func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.
 			StatusCode: base.StatusNotFound,
 		}, nil, nil
 	}
-
-	
 
 	cSeq := ctx.Request.Header["CSeq"]
 
@@ -95,6 +113,20 @@ func init() {
 		FullTimestamp: true,
 	})
 
+	viper.SetConfigName("config")
+	viper.AddConfigPath(".")
+	viper.SetConfigType("yaml")
+
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Printf("Error reading config file: %s\n", err)
+		return
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		fmt.Printf("Error unmarshaling config: %s\n", err)
+		return
+	}
+
 	db, err := geoip2.Open("path/to/GeoLite2-Country.mmdb")
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -107,7 +139,7 @@ func init() {
 
 func main() {
 	h := &serverHandler{}
-	h.s = &gortsplib.Server{
+	h.server = &gortsplib.Server{
 		Handler:           h,
 		RTSPAddress:       ":8554",
 		UDPRTPAddress:     ":8000",
