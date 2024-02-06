@@ -8,7 +8,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/oschwald/geoip2-golang"
     "github.com/sirupsen/logrus"
-    "github.com/OverlayFox/VRC-Stream-Haven/logging"    
+    "github.com/OverlayFox/VRC-Stream-Haven/logger"    
 )
 
 type Config struct {
