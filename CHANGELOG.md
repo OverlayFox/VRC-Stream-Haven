@@ -12,3 +12,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - geoLocator to locate clients based on IPAddress collected in the describe process
 - added geoLocator database from MaxMind, Inc.
 - added nodeService to handle node config readouts
+- added logic to describe function to redirect client to the closest available node

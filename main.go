@@ -49,17 +49,28 @@ func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (
 	sh.mutex.Lock()
 	defer sh.mutex.Unlock()
 
-	fmt.Println(lib.LocateIp(ctx.Conn.NetConn().RemoteAddr().String()))
-
 	if sh.stream == nil {
 		return &base.Response{
 			StatusCode: base.StatusBadRequest,
 		}, nil, nil
 	}
 
+	latitude, longitude := lib.LocateIp(ctx.Conn.NetConn().RemoteAddr().String())
+	closestNode := lib.GetDistance(latitude, longitude, lib.Config.Nodes)
+
+	if closestNode.IpAddress != lib.Config.Server.IpAddress {
+		return &base.Response{
+			StatusCode: base.StatusMovedPermanently,
+			Header: base.Header{
+				"Location": base.HeaderValue{"rtsp://" + closestNode.IpAddress + ":" + closestNode.StreamingPort},
+			},
+		}, nil, nil
+	}
+
 	return &base.Response{
 		StatusCode: base.StatusOK,
 	}, sh.stream, nil
+
 }
 
 func (sh *serverHandler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
@@ -131,5 +142,6 @@ func main() {
 	//log.Println("Server is ready.....")
 	//panic(handler.server.StartAndWait())
 
-	fmt.Println(lib.ReadNodes().Nodes)
+	lib.InitialiseConfig()
+	fmt.Println(lib.Config.Nodes)
 }
