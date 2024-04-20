@@ -1,11 +1,12 @@
 nodes:
-  - node: 0
-    publicIpAddress: "192.168.0.3"
-    publicPort: "8554"
-    latitude:
-    longitude:
-  - node: 1
-    publicIpAddress: "192.168.0.44"
-    publicPort: "8554"
-    latitude:
-    longitude:
+  - node:
+    isoCountry: "1"
+    publicIpAddress: "1"
+    streamingPort: "1"
+    vpnPort: "1"
+
+  - node:
+    isoCountry: "1"
+    publicIpAddress: "1"
+    streamingPort: "1"
+    vpnPort: "1"

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	lib "github.com/OverlayFox/VRC-Stream-Haven/libraries"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -47,9 +49,11 @@ func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (
 	sh.mutex.Lock()
 	defer sh.mutex.Unlock()
 
+	fmt.Println(lib.LocateIp(ctx.Conn.NetConn().RemoteAddr().String()))
+
 	if sh.stream == nil {
 		return &base.Response{
-			StatusCode: base.StatusNotFound,
+			StatusCode: base.StatusBadRequest,
 		}, nil, nil
 	}
 
@@ -96,7 +100,6 @@ func (sh *serverHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*bas
 
 	ctx.Session.OnPacketRTPAny(func(media *description.Media, format format.Format, packet *rtp.Packet) {
 		sh.stream.WritePacketRTP(media, packet)
-		log.Println(format.Codec(), format.PTSEqualsDTS(packet))
 	})
 
 	return &base.Response{
@@ -104,14 +107,29 @@ func (sh *serverHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*bas
 	}, nil
 }
 
-func main() {
-	handler := &serverHandler{}
-	handler.server = &gortsplib.Server{
+func (sh *serverHandler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+	log.Println("Play Request")
 
-		Handler:     handler,
-		RTSPAddress: ":8554",
+	if sh.stream != nil {
+		return &base.Response{
+			StatusCode: base.StatusOK,
+		}, nil
 	}
 
-	log.Println("Server is ready.....")
-	panic(handler.server.StartAndWait())
+	return &base.Response{
+		StatusCode: base.StatusNotFound,
+	}, nil
+}
+
+func main() {
+	//handler := &serverHandler{}
+	//handler.server = &gortsplib.Server{
+	//	Handler:     handler,
+	//	RTSPAddress: ":8554",
+	//}
+	//
+	//log.Println("Server is ready.....")
+	//panic(handler.server.StartAndWait())
+
+	fmt.Println(lib.ReadNodes().Nodes)
 }
