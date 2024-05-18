@@ -17,9 +17,9 @@ func remuxFlvToRtsp(inputPath, outputPath string) error {
 }
 
 func NodeHlsPlaylist(rtspUri string) error {
-	inputArgs := []string{"-fflags", "+discardcorrupt+igndts+genpts", "-use_wallclock_as_timestamps", "1"}
+	inputArgs := []string{"-fflags", "+discardcorrupt+igndts+genpts"}
 	rtspInput := []string{"-timeout", "-1", "-i", rtspUri}
-	filterComplex := []string{"-filter_complex", "[0:a]asetpts=PTS-STARTPTS[a0];[0:v]fps=fps=50,setpts=PTS-STARTPTS,scale=w=1280:h=720,setsar=sar=1[v0]"}
+	filterComplex := []string{"-filter_complex", "[0:a]asetpts=PTS-STARTPTS[a0];[0:v]setpts=PTS-STARTPTS[v0]"}
 	videoEncode := []string{"-map", "[v0]", "-c:v:0", "h264_nvenc", "-preset", "p3", "-tune", "ll", "-profile:v:0", "main", "-level:v:0", "3.2", "-cbr", "true", "-b:v:0", "2500k", "-g", "50", "-strict_gop", "1"}
 	audioEncode := []string{"-map", "[a0]", "-c:a:0", "aac", "-b:a:0", "320k", "-ac:a:0", "2"}
 	hlsSettings := []string{"-f", "hls", "-hls_time", "10", "-hls_list_size", "5", "-hls_delete_threshold", "10", "-hls_start_number_source", "epoch", "-hls_allow_cache", "0"}
