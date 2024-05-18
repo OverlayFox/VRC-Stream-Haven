@@ -44,3 +44,24 @@ func NodeHlsPlaylist(rtspUri string) error {
 
 	return nil
 }
+
+func RelayHlsToRtsp(hlsUri, rtspOutput string) error {
+	rtspInput := []string{"-timeout", "-1", "-re", "-i", hlsUri}
+	filterComplex := []string{"-filter_complex", "[0:a]asetpts=PTS-STARTPTS[a0];[0:v]setpts=PTS-STARTPTS[v0];"}
+	videoEncode := []string{"-map", "[v0]", "-c:v:0", "h264_nvenc", "-preset", "p3", "-tune", "ll", "-profile:v:0", "main", "-level:v:0", "3.2", "-cbr", "true", "-b:v:0", "2500k", "-g", "50", "-strict_gop", "1"}
+	audioEncode := []string{"-map", "[a0]", "-c:a:0", "aac", "-b:a:0", "320k", "-ac:a:0", "2"}
+	rtspSettings := []string{"-f", "rtsp", rtspOutput}
+
+	ffmpegCommand := append(rtspInput, filterComplex...)
+	ffmpegCommand = append(ffmpegCommand, videoEncode...)
+	ffmpegCommand = append(ffmpegCommand, audioEncode...)
+	ffmpegCommand = append(ffmpegCommand, rtspSettings...)
+
+	cmd := exec.Command("ffmpeg", ffmpegCommand...)
+	if err := cmd.Run(); err != nil {
+		log.Fatalf("Failed to Run Relay FFMPEG Comand: %v", err)
+		return err
+	}
+
+	return nil
+}
