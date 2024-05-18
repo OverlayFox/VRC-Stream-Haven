@@ -116,9 +116,9 @@ func (sh *RtspServerHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (
 		sh.Stream.WritePacketRTP(media, packet)
 	})
 
-	go func() {
-		lib.NodeHlsPlaylist("rtsp://127.0.0.1:8554/ingest/channel")
-	}()
+	//go func() {
+	//	lib.NodeHlsPlaylist("rtsp://127.0.0.1:8554/ingest/channel")
+	//}()
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
