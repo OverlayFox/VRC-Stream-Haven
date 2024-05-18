@@ -24,7 +24,7 @@ func NodeHlsPlaylist(rtspUri string) error {
 	audioEncode := []string{"-map", "[a0]", "-c:a:0", "aac", "-b:a:0", "320k", "-ac:a:0", "2"}
 	hlsSettings := []string{"-f", "hls", "-hls_time", "10", "-hls_list_size", "5", "-hls_delete_threshold", "10", "-hls_start_number_source", "epoch", "-hls_allow_cache", "0"}
 	hlsFlags := []string{"-hls_flags", "independent_segments"}
-	hlsSegments := []string{"-hls_segment_type", "mpegts", "-strftime_mkdir", "1", "-hls_segment_filename", "/%v/data_%02d.ts", "-master_pl_name", "playlist.m3u8", "-master_pl_publish_rate", "3"}
+	hlsSegments := []string{"-hls_segment_type", "mpegts", "-strftime_mkdir", "1", "-hls_segment_filename", "%v/data_%02d.ts", "-master_pl_name", "playlist.m3u8", "-master_pl_publish_rate", "3"}
 	streamMap := []string{"-var_stream_map", "v:0,a:0,name:720p", "/tmp/streams/stream_%v.m3u8"}
 
 	ffmpegCommand := append(inputArgs, rtspInput...)
