@@ -1,30 +1,9 @@
 nodes:
-  - node:
-    publicIpAddress: "7.232.185.61"
-    streamingPort: "1"
-    vpnPort: "1"
-
-  - node:
-    publicIpAddress: "190.184.225.17"
-    streamingPort: "1"
-    vpnPort: "1"
-
-  - node:
-    publicIpAddress: "24.128.44.25"
-    streamingPort: "1"
-    vpnPort: "1"
-
-  - node:
-    publicIpAddress: "132.244.216.33"
-    streamingPort: "1"
-    vpnPort: "1"
-
-  - node:
-    publicIpAddress: "104.234.64.123"
-    streamingPort: "1"
-    vpnPort: "1"
+  - publicIpAddress: "125.120.200.161"
+    streamingPort: "8554"
+    vpnPort: "0"
 
 server:
-  publicIpAddress: "125.120.200.161"
-  streamingPort: "1"
-  vpnPort: "1"
+  publicIpAddress: "178.203.17.32"
+  streamingPort: "8554"
+  vpnPort: "0"

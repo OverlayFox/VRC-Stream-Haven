@@ -9,7 +9,7 @@ import (
 )
 
 func LoadDatabase() *geoip2.Reader {
-	database, err := geoip2.Open("./GeoDatabase/GeoLite2-City.mmdb")
+	database, err := geoip2.Open("./geoDatabase/GeoLite2-City.mmdb")
 	if err != nil {
 		log.Fatal(err)
 	}
