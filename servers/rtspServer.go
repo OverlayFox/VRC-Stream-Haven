@@ -117,7 +117,7 @@ func (sh *RtspServerHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (
 	})
 
 	go func() {
-		lib.NodeHlsPlaylist("rtsp://127.0.0.1:8554")
+		lib.NodeHlsPlaylist("rtsp://127.0.0.1:8554/ingest/channel")
 	}()
 
 	return &base.Response{
