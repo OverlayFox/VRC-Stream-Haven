@@ -19,7 +19,7 @@ func main() {
 	rtspNodeHandler := &servers.RtspNodeServerHandler{}
 	rtspNodeHandler.Server = &gortsplib.Server{
 		Handler:     rtspNodeHandler,
-		RTSPAddress: ":8555",
+		RTSPAddress: ":8554",
 	}
 
 	//log.Println("Server is ready.....")
