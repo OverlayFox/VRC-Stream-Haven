@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"sync"
 
+	"github.com/OverlayFox/VRC-Stream-Haven/libraries"
 	"github.com/yapingcat/gomedia/go-codec"
 	"github.com/yapingcat/gomedia/go-rtmp"
 )
@@ -193,7 +195,6 @@ func (sess *MediaSession) init() {
 				go sess.sendToClient()
 			}
 		} else if newState == rtmp.STATE_RTMP_PUBLISH_START {
-			fmt.Println("publish start")
 			sess.handle.OnFrame(func(cid codec.CodecID, pts, dts uint32, frame []byte) {
 				f := &MediaFrame{
 					cid:   cid,
@@ -208,6 +209,12 @@ func (sess *MediaSession) init() {
 			p := newMediaProducer(name, sess)
 			go p.dispatch()
 			center.register(name, p)
+
+			if os.Getenv("IS_NODE") == "False" {
+				go libraries.RemuxFlvToRtsp("rtmp://localhost:1940/ingest/"+name, "rtsp://localhost:8554/ingest/"+name)
+				go libraries.NodeHlsPlaylist("rtmp://localhost:1940/ingest/" + name)
+				go ServeM3u8()
+			}
 		}
 	})
 }

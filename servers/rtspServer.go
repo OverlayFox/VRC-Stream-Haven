@@ -8,6 +8,8 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 	"log"
+	"net"
+	"os"
 	"sync"
 )
 
@@ -54,20 +56,27 @@ func (sh *RtspServerHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCt
 		}, nil, nil
 	}
 
-	latitude, longitude := lib.LocateIp(ctx.Conn.NetConn().RemoteAddr().String())
-	closestNode := lib.GetDistance(latitude, longitude, lib.Config.Nodes)
-	log.Printf("Client IP-Address: %v", ctx.Conn.NetConn().RemoteAddr().String())
+	if os.Getenv("IS_NODE") == "False" {
+		remoteHost, _, _ := net.SplitHostPort(ctx.Conn.NetConn().RemoteAddr().String())
+		localHost, _, _ := net.SplitHostPort(ctx.Conn.NetConn().LocalAddr().String())
 
-	if closestNode.IpAddress != lib.Config.Server.IpAddress {
-		log.Printf("Send Client to node: %v", closestNode.IpAddress)
-		return &base.Response{
-			StatusCode: base.StatusMovedPermanently,
-			Header: base.Header{
-				"Location": base.HeaderValue{"rtsp://" + closestNode.IpAddress + ":" + closestNode.StreamingPort},
-			},
-		}, nil, nil
-	} else {
-		log.Printf("Send Client to server: %v", lib.Config.Server.IpAddress)
+		if remoteHost != localHost {
+			latitude, longitude := lib.LocateIp(ctx.Conn.NetConn().RemoteAddr().String())
+			closestNode := lib.GetDistance(latitude, longitude, lib.Config.Nodes)
+			log.Printf("Client IP-Address: %v", ctx.Conn.NetConn().RemoteAddr().String())
+
+			if closestNode.IpAddress != lib.Config.Server.IpAddress {
+				log.Printf("Send Client to node: %v", closestNode.IpAddress)
+				return &base.Response{
+					StatusCode: base.StatusMovedPermanently,
+					Header: base.Header{
+						"Location": base.HeaderValue{"rtsp://" + closestNode.IpAddress + ":" + closestNode.StreamingPort},
+					},
+				}, nil, nil
+			} else {
+				log.Printf("Send Client to server: %v", lib.Config.Server.IpAddress)
+			}
+		}
 	}
 
 	return &base.Response{
@@ -115,10 +124,6 @@ func (sh *RtspServerHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (
 	ctx.Session.OnPacketRTPAny(func(media *description.Media, format format.Format, packet *rtp.Packet) {
 		sh.Stream.WritePacketRTP(media, packet)
 	})
-
-	go func() {
-		lib.NodeHlsPlaylist("rtsp://127.0.0.1:8554/ingest/channel")
-	}()
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
