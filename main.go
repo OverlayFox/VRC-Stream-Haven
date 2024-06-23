@@ -1,135 +1,37 @@
 package main
 
 import (
-	"fmt"
 	lib "github.com/OverlayFox/VRC-Stream-Haven/libraries"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers"
 	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/pion/rtp"
 	"log"
-	"sync"
 )
 
-type serverHandler struct {
-	server    *gortsplib.Server
-	stream    *gortsplib.ServerStream
-	publisher *gortsplib.ServerSession
-	mutex     sync.Mutex
-}
-
-func (sh *serverHandler) OnConnectionOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	log.Println("Connection Opened")
-}
-
-func (sh *serverHandler) OnConnectionClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
-	log.Println("Connection Closed")
-}
-
-func (sh *serverHandler) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
-	log.Println("Session opened")
-}
-
-func (sh *serverHandler) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
-	log.Println("Session closed")
-
-	sh.mutex.Lock()
-	defer sh.mutex.Unlock()
-
-	if sh.stream != nil && ctx.Session == sh.publisher {
-		sh.stream.Close()
-		sh.stream = nil
-	}
-}
-
-func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	log.Println("Describe Request")
-
-	sh.mutex.Lock()
-	defer sh.mutex.Unlock()
-
-	fmt.Println(lib.LocateIp(ctx.Conn.NetConn().RemoteAddr().String()))
-
-	if sh.stream == nil {
-		return &base.Response{
-			StatusCode: base.StatusBadRequest,
-		}, nil, nil
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
-}
-
-func (sh *serverHandler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	log.Println("Announce Request")
-
-	sh.mutex.Lock()
-	defer sh.mutex.Unlock()
-
-	if sh.stream != nil {
-		sh.stream.Close()
-		sh.publisher.Close()
-	}
-
-	sh.stream = gortsplib.NewServerStream(sh.server, ctx.Description)
-	sh.publisher = ctx.Session
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, nil
-}
-
-func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	log.Println("Setup Request")
-
-	if sh.stream == nil {
-		return &base.Response{
-			StatusCode: base.StatusNotFound,
-		}, nil, nil
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
-}
-
-func (sh *serverHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	log.Println("Record Request")
-
-	ctx.Session.OnPacketRTPAny(func(media *description.Media, format format.Format, packet *rtp.Packet) {
-		sh.stream.WritePacketRTP(media, packet)
-	})
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, nil
-}
-
-func (sh *serverHandler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
-	log.Println("Play Request")
-
-	if sh.stream != nil {
-		return &base.Response{
-			StatusCode: base.StatusOK,
-		}, nil
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusNotFound,
-	}, nil
-}
-
 func main() {
-	//handler := &serverHandler{}
-	//handler.server = &gortsplib.Server{
-	//	Handler:     handler,
+	lib.InitialiseConfig()
+
+	rtspHandler := &servers.RtspServerHandler{}
+	rtspHandler.Server = &gortsplib.Server{
+		Handler:     rtspHandler,
+		RTSPAddress: ":8554",
+	}
+
+	//rtspNodeHandler := &servers.RtspNodeServerHandler{}
+	//rtspNodeHandler.Server = &gortsplib.Server{
+	//	Handler:     rtspNodeHandler,
 	//	RTSPAddress: ":8554",
 	//}
-	//
-	//log.Println("Server is ready.....")
-	//panic(handler.server.StartAndWait())
 
-	fmt.Println(lib.ReadNodes().Nodes)
+	log.Println("Server is ready.....")
+	panic(rtspHandler.Server.StartAndWait())
+
+	//log.Println("Node Server is ready.....")
+	//go func() {
+	//	lib.RelayHlsToRtsp("http://10.58.97.100/tmp/streams/playlist.m3u8", "rtsp://localhost:8554/ingest/channel")
+	//}()
+	//panic(rtspNodeHandler.Server.StartAndWait())
+
+	//flag.Parse()
+	//go servers.StartRtmpServer()
+	//select {}
 }
