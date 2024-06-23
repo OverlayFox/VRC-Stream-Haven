@@ -213,6 +213,7 @@ func (sess *MediaSession) init() {
 			if os.Getenv("IS_NODE") == "False" {
 				go libraries.RemuxFlvToRtsp("rtmp://localhost:1940/ingest/"+name, "rtsp://localhost:8554/ingest/"+name)
 				go libraries.NodeHlsPlaylist("rtmp://localhost:1940/ingest/" + name)
+				go ServeM3u8()
 			}
 		}
 	})
