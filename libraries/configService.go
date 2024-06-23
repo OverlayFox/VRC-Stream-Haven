@@ -4,6 +4,8 @@ import (
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type NodeStruct struct {
@@ -33,4 +35,11 @@ func InitialiseConfig() *ConfigStruct {
 	Config.Nodes = append(Config.Nodes, Config.Server)
 
 	return &Config
+}
+
+func InitEnv() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 }
