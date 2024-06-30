@@ -1,7 +1,7 @@
 # VRC-Stream-Haven
-**V**igorously **R**esentful **C**ontent Stream Haven is a locally hosted application designed for publishing RTMP or SRT signals to the web as a RTSP or HLS stream. </br>
+**V**igorously **R**esentful **C**ontent Stream Haven is a locally hosted application designed for publishing RTMP or SRT signals to the web as a RTSP or HLS streams. </br>
 
-But VRCHavens main strength lies in the node network feature.<br>
+VRCHavens main strength lies in the node network feature.<br>
 Users can choose to join together as nodes, to form a private CDN for the stream, improving stability for viewers. </br>
 
 ## General Functionality
