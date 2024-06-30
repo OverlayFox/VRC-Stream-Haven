@@ -10,7 +10,7 @@ The server then re-streams that signal to all of the nodes over a SRT connection
 The server and nodes then convert the SRT signal to RTSP and push it out to the web.<br>
 
 The viewer will connect to the server and ask for the stream.<br>
-The server will look up the country from where the viewer is via a local Geo database and see which node is the closest to the viewer.<br>
+The server will look up the country from where the viewer is and see which node is the closest to the viewer.<br>
 It will then redirect the viewer to the closest node.<br>
 
 ## Signal Flow
