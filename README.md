@@ -49,6 +49,6 @@ VRCHaven does not encrypt the outgoing HLS or RTSP stream or obscure your IP Add
 This means your IP address and the IP address of all nodes will be exposed to anyone watching the stream.<br>
 Which can be used to figure out where the server and nodes are. Which might be your home address.<br>
 
-This is why we recommend that the server and each node routes the RTSP or HLS output of VRCHaven over a VPN or proxy provider that you trust.
-It only needs to support port forwarding.
+This is why we recommend that the server and each node routes the RTSP or HLS output of VRCHaven over a VPN or proxy provider that you trust.<br>
+It only needs to support port forwarding.<br>
 This will obscure the IP address of the nodes and server.
