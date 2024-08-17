@@ -7,6 +7,7 @@ paths:
   '/auth/login':
     post:
       summary: 'Authenticates the user and returns a JWT token'
+      description: 'Body needs to be send as a encrypted JSON string'
       requestBody:
         required: true
         content:
@@ -23,7 +24,7 @@ paths:
                 - password
       responses:
         '200':
-          description: 'Login successful'
+          description: 'JWT token returned on successful authentication. The content will be a encrypted JSON string.'
           content:
             application/json:
               schema:
@@ -31,6 +32,51 @@ paths:
                 properties:
                   token:
                     type: string
+
+  '/escort/register':
+    post:
+      summary: 'Registers the client as a new escort'
+      description: 'Body needs to be send as a encrypted JSON string'
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ipAddress:
+                  type: string
+                rtspEgressPort:
+                  type: integer
+                lat:
+                  description: 'Latitude of the location of the escort'
+                  type: number
+                lon:
+                  description: 'Longitude of the location of the escort'
+                  type: number
+                username:
+                  type: string
+                passphrase:
+                  type: string
+              required:
+                - ipAddress
+                - rtspEgressPort
+                - lat
+                - lon
+                - username
+                - passphrase
+      responses:
+        '200':
+          description: 'Successfully registered escort'
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 'Successfully registered escort'
+                description: 'The string will be encrypted'
+
 components:
   securitySchemes:
     bearerAuth:

@@ -10,7 +10,7 @@ import (
 )
 
 var PrePassphrase []byte
-var ApiPassword string
+var Password string
 
 // jwtMiddleware checks for a valid JWT token in the Authorization header
 func jwtMiddleware(next http.Handler) http.Handler {

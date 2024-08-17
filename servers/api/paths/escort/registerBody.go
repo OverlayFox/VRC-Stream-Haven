@@ -1,7 +1,7 @@
 package escort
 
 type RegisterBody struct {
-	IpAddress      string  `yaml:"publicIpAddress"`
+	IpAddress      string  `yaml:"ipAddress"`
 	RtspEgressPort int     `yaml:"rtspEgressPort"`
 	Latitude       float64 `yaml:"lat"`
 	Longitude      float64 `yaml:"lon"`

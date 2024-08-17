@@ -5,13 +5,26 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/haven"
 	"github.com/OverlayFox/VRC-Stream-Haven/haven/types"
 	"github.com/OverlayFox/VRC-Stream-Haven/servers/api"
+	"io"
 	"net"
 	"net/http"
 )
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	bodyJson, err := api.Decrypt(string(bodyBytes), api.PrePassphrase)
+	if err != nil {
+		http.Error(w, "Failed to decrypt body", http.StatusInternalServerError)
+		return
+	}
+
 	var body RegisterBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := json.Unmarshal([]byte(bodyJson), &body); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -37,7 +50,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.WriteHeader(http.StatusOK)
-	encrypt, err := api.Encrypt("Successfully registered escort\n", []byte(body.Passphrase))
+	encrypt, err := api.Encrypt("Successfully registered escort", []byte(body.Passphrase))
 	if err != nil {
 		http.Error(w, "Failed to encrypt response", http.StatusInternalServerError)
 		return
