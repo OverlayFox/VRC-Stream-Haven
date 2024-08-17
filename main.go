@@ -4,7 +4,7 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/haven"
 	"github.com/OverlayFox/VRC-Stream-Haven/haven/types"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/rtmpServer"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers/rtmp"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 	haven.MakeHaven(&[]*types.Escort{escort}, flagship, true)
 
 	go func() {
-		rtmpServer.StartRtmpServer()
+		rtmp.StartRtmpServer()
 	}()
 
 	logger.Log.Info().Msg("RTMP Server started")

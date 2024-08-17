@@ -1,0 +1,39 @@
+openapi: 3.0.0
+info:
+  title: 'VRC Haven Front Facing API'
+  description: 'This API will be used for escort server to communicated with the flagship.'
+  version: '0.0.1'
+paths:
+  '/auth/login':
+    post:
+      summary: 'Authenticates the user and returns a JWT token'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: 'Login successful'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

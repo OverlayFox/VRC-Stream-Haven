@@ -1,8 +1,8 @@
-package rtmpServer
+package rtmp
 
 import (
 	"github.com/OverlayFox/VRC-Stream-Haven/haven"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/rtmpServer/types"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers/rtmp/types"
 	"net"
 	"strconv"
 )

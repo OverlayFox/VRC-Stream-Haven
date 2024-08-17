@@ -1,11 +1,11 @@
-package srtServer
+package srt
 
 import (
 	"errors"
 	"flag"
 	"fmt"
 	utils "github.com/OverlayFox/VRC-Stream-Haven/servers"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/srtServer/types"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers/srt/types"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pkg/profile"
 	"os"
