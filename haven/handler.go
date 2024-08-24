@@ -13,7 +13,7 @@ func MakeHaven(escorts *[]*types.Escort, flagship *types.Flagship, isServer bool
 	Haven.IsServer = isServer
 }
 
-func MakeEscort(rtspEgressPort int) (*types.Escort, error) {
+func MakeEscort(rtspEgressPort uint16) (*types.Escort, error) {
 	ip, err := GetPublicIpAddress()
 	if err != nil {
 		return &types.Escort{}, err
@@ -27,7 +27,7 @@ func MakeEscort(rtspEgressPort int) (*types.Escort, error) {
 	}, nil
 }
 
-func MakeFlagship(ship *types.Escort, apiPort, srtIngestPort, rtmpIngestPort int) *types.Flagship {
+func MakeFlagship(ship *types.Escort, apiPort, srtIngestPort, rtmpIngestPort uint16) *types.Flagship {
 	return &types.Flagship{
 		Ship:           ship,
 		SrtIngestPort:  srtIngestPort,

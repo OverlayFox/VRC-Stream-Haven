@@ -1,28 +1,89 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/haven"
-	"github.com/OverlayFox/VRC-Stream-Haven/haven/types"
+	havenTypes "github.com/OverlayFox/VRC-Stream-Haven/haven/types"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/servers/rtmp"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers/srt"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers/upnp"
+	"os"
+	"strings"
 )
+
+func asFlagship() {
+	logger.Log.Info().Msg("Starting as Flagship...")
+
+	var srtIngestPort uint16 = 9710
+	var rtmpIngestPort uint16 = 1935
+	var rtspEgressPort uint16 = 8557
+	var apiPort uint16 = 8042
+
+	upnp.SetupPortForward(srtIngestPort, rtspEgressPort, apiPort)
+
+	escort, err := haven.MakeEscort(rtspEgressPort)
+	if err != nil {
+		logger.Log.Fatal().Err(err).Msg("Could not create Flagship as Escort")
+	}
+
+	flagship := haven.MakeFlagship(escort, apiPort, srtIngestPort, rtmpIngestPort)
+
+	haven.MakeHaven(&[]*havenTypes.Escort{escort}, flagship, true)
+
+	rtmp.StartRtmpServer()
+
+	go func() {
+		srt.StartUpIngestSRT()
+	}()
+
+	go func() {
+		rtsp
+	}()
+
+}
+
+func asEscort() {
+	logger.Log.Info().Msg("Starting as Escort...")
+
+	upnp.SetupPortForward(0, 8557, 0)
+
+	haven.MakeEscort()
+}
+
+func getShipState() bool {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Are you the Flagship? (y/n): ")
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		logger.Log.Fatal().Err(err).Msg("Could not read input")
+	}
+
+	userOutput := strings.ToUpper(strings.TrimSpace(input))
+
+	if userOutput != "Y" && userOutput != "N" {
+		fmt.Print("Invalid input. Please enter 'y' or 'n'\n")
+		return getShipState()
+	}
+
+	if userOutput == "Y" {
+		return true
+	}
+
+	return false
+}
 
 func main() {
 	logger.InitLogger()
 
-	escort, err := haven.MakeEscort(8554)
-	if err != nil {
-		logger.Log.Fatal().Err(err).Msg("Could not create Escort Flagship")
+	isFlagship := getShipState()
+
+	if isFlagship {
+		asFlagship()
+	} else {
+		asEscort()
 	}
-	flagship := haven.MakeFlagship(escort, 8080, 8555, 1935)
-	haven.MakeHaven(&[]*types.Escort{escort}, flagship, true)
-
-	go func() {
-		rtmp.StartRtmpServer()
-	}()
-
-	logger.Log.Info().Msg("RTMP Server started")
-	select {}
 
 	//lib.Scanner = bufio.NewScanner(os.Stdin)
 	//if lib.IsServer() {
