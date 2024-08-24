@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers/upnp"
 )
 
 func asFlagship() {
@@ -11,19 +12,9 @@ func asFlagship() {
 func main() {
 	logger.InitLogger()
 
-	ctx := context.Background()
-	client, err := upnp.GetRouterClient(ctx)
-	if err != nil {
-		if err.Error() == "multiple or no services found" {
-			logger.Log.Fatal().Err(err).Msg("Multiple or no services found")
-		}
-		logger.Log.Fatal().Err(err).Msg("Could not get router client")
-	}
+	upnp.SetupPortForward(9710, 8557, 8042)
 
-	err = client.AddPortMapping("", 1235, "TCP", 1234, "192.168.0.42", true, "Test", 0)
-	if err != nil {
-		logger.Log.Fatal().Err(err).Msg("Could not forward port")
-	}
+	logger.Log.Info().Msg("UPnP setup completed...")
 
 	//ip, err := servers.GetLocalIP()
 	//if err != nil {

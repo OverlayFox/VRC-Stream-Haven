@@ -1,4 +1,4 @@
-package auth
+package paths
 
 type LoginResponse struct {
 	Token string `json:"token"`

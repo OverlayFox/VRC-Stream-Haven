@@ -1,4 +1,4 @@
-package escort
+package paths
 
 type RegisterBody struct {
 	IpAddress      string  `yaml:"ipAddress"`

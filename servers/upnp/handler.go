@@ -22,7 +22,7 @@ func forwardPorts(portMappings []types.PortMapping, client types.RouterClient) e
 			"",
 			portMapping.ExternalPort,
 			portMapping.Protocol,
-			portMapping.ExternalPort,
+			portMapping.InternalPort,
 			localIp.String(),
 			portMapping.Enabled,
 			portMapping.Description,
@@ -74,12 +74,12 @@ func getRouterClient(ctx context.Context) (types.RouterClient, error) {
 	}
 }
 
-func SetupPortForward() {
-	client, err := getRouterClient(context.Background())
+func SetupPortForward(srtPort, rtspPort, apiPort uint16) {
+	router, err := getRouterClient(context.Background())
 	if err != nil {
 		switch ui.PortForwardNotPossible() {
 		case ui.IDRETRY:
-			SetupPortForward()
+			SetupPortForward(srtPort, rtspPort, apiPort)
 
 		case ui.IDIGNORE:
 			logger.Log.Info().Msg("Ignoring UPnP port forwarding...")
@@ -91,5 +91,47 @@ func SetupPortForward() {
 		}
 	}
 
-	forwardPorts()
+	localIp, err := servers.GetLocalIP()
+	if err != nil {
+		logger.Log.Fatal().Err(err).Msg("Could not get local IP")
+	}
+
+	var ports []types.PortMapping
+	if srtPort != 0 {
+		ports = append(ports, types.PortMapping{
+			ExternalPort: srtPort,
+			Protocol:     "UDP",
+			InternalPort: srtPort,
+			InternalIP:   localIp.String(),
+			Enabled:      true,
+			Description:  "VRC-Haven SRT Forward",
+		})
+	}
+
+	if rtspPort != 0 {
+		ports = append(ports, types.PortMapping{
+			ExternalPort: rtspPort,
+			Protocol:     "UDP",
+			InternalPort: rtspPort,
+			InternalIP:   localIp.String(),
+			Enabled:      true,
+			Description:  "VRC-Haven RTSP Forward",
+		})
+	}
+
+	if apiPort != 0 {
+		ports = append(ports, types.PortMapping{
+			ExternalPort: apiPort,
+			Protocol:     "TCP",
+			InternalPort: apiPort,
+			InternalIP:   localIp.String(),
+			Enabled:      true,
+			Description:  "VRC-Haven API Forward",
+		})
+	}
+
+	err = forwardPorts(ports, router)
+	if err != nil {
+		logger.Log.Fatal().Err(err).Msg("Could not forward ports")
+	}
 }

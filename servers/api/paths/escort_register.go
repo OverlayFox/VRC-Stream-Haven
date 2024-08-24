@@ -1,4 +1,4 @@
-package escort
+package paths
 
 import (
 	"encoding/json"
