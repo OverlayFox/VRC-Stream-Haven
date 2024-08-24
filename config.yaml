@@ -1,9 +1,0 @@
-nodes:
-  - publicIpAddress: "125.120.200.161"
-    streamingPort: "8554"
-    vpnPort: "0"
-
-server:
-  publicIpAddress: "178.203.17.32"
-  streamingPort: "8554"
-  vpnPort: "0"
