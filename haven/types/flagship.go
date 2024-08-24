@@ -3,8 +3,8 @@ package types
 // Flagship holds all information about the Flagship running the Haven.
 type Flagship struct {
 	Ship           *Escort `yaml:"ship"`
-	SrtIngestPort  int     `yaml:"srtIngestPort"`
-	RtmpIngestPort int     `yaml:"rtmpIngestPort"`
-	ApiPort        int     `yaml:"apiPort"`
+	SrtIngestPort  uint16  `yaml:"srtIngestPort"`
+	RtmpIngestPort uint16  `yaml:"rtmpIngestPort"`
+	ApiPort        uint16  `yaml:"apiPort"`
 	Passphrase     string  `yaml:"passphrase"`
 }
