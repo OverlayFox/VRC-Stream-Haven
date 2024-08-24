@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	srt "github.com/datarhei/gosrt"
 	"net"
 	"net/url"
@@ -40,7 +41,7 @@ func (s *MediaSession) Shutdown() {
 }
 
 func (s *MediaSession) log(who, action, path, message string, client net.Addr) {
-	fmt.Fprintf(os.Stderr, "%-10s %10s %s (%s) %s\n", who, action, path, client, message)
+	logger.Log.Info().Msgf("%-10s %10s %s (%s) %s\n", who, action, path, client, message)
 }
 
 func (s *MediaSession) HandleConnect(req srt.ConnRequest) srt.ConnType {

@@ -1,11 +1,11 @@
-package srtServer
+package srt
 
 import (
 	"errors"
 	"flag"
 	"fmt"
-	utils "github.com/OverlayFox/VRC-Stream-Haven/servers"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/srtServer/types"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/servers/srt/types"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pkg/profile"
 	"os"
@@ -14,50 +14,51 @@ import (
 	"strings"
 )
 
-func SetupBackendSrt(passphrase string) *types.MediaSession {
+//func SetupBackendSrt(passphrase string) *types.MediaSession {
+//	s := &types.MediaSession{
+//		Channels: make(map[string]srt.PubSub),
+//	}
+//
+//	for address := 6042; address < 6142; address++ {
+//		if utils.IsPortFree(fmt.Sprintf("%d", address)) {
+//			s.Addr = ":" + strconv.Itoa(address)
+//			break
+//		}
+//	}
+//
+//	if s.Addr == "" {
+//		fmt.Fprintf(os.Stderr,
+//			"No free port found between 6042/UDP and 6142/UDP"+
+//				"\nPlease ensure a port is free in this range\n")
+//		os.Exit(1)
+//	}
+//
+//	s.App = "/backend"
+//	s.Passphrase = passphrase
+//
+//	config := srt.DefaultConfig()
+//	config.KMPreAnnounce = 200
+//	config.KMRefreshRate = 10000
+//
+//	s.Server = &srt.Server{
+//		Addr:            s.Addr,
+//		HandleConnect:   s.HandleConnect,
+//		HandlePublish:   s.HandlePublish,
+//		HandleSubscribe: s.HandleSubscribe,
+//		Config:          &config,
+//	}
+//
+//	return s
+//}
+
+func StartUpIngestSRT(port uint16, passphrase string) *types.MediaSession {
 	s := &types.MediaSession{
 		Channels: make(map[string]srt.PubSub),
 	}
 
-	for address := 6042; address < 6142; address++ {
-		if utils.IsPortFree(fmt.Sprintf("%d", address)) {
-			s.Addr = ":" + strconv.Itoa(address)
-			break
-		}
-	}
-
-	if s.Addr == "" {
-		fmt.Fprintf(os.Stderr,
-			"No free port found between 6042/UDP and 6142/UDP"+
-				"\nPlease ensure a port is free in this range\n")
-		os.Exit(1)
-	}
-
-	s.App = "/backend"
-	s.Passphrase = passphrase
-
-	config := srt.DefaultConfig()
-	config.KMPreAnnounce = 200
-	config.KMRefreshRate = 10000
-
-	s.Server = &srt.Server{
-		Addr:            s.Addr,
-		HandleConnect:   s.HandleConnect,
-		HandlePublish:   s.HandlePublish,
-		HandleSubscribe: s.HandleSubscribe,
-		Config:          &config,
-	}
-
-	return s
-}
-
-func StartUpIngestSRT() *types.MediaSession {
-	s := &types.MediaSession{
-		Channels: make(map[string]srt.PubSub),
-	}
-
-	s.Addr = ":6001"
+	s.Addr = ":" + strconv.Itoa(int(port))
 	s.App = "/ingest"
+	s.Passphrase = passphrase
 	//flag.StringVar(&s.addr, "addr", "", "address to listen on")
 	flag.StringVar(&s.App, "app", "", "path prefix for streamid")
 	flag.StringVar(&s.Token, "token", "", "token query param for streamid")
@@ -116,7 +117,7 @@ func StartUpIngestSRT() *types.MediaSession {
 		Config:          &config,
 	}
 
-	fmt.Fprintf(os.Stderr, "Listening on %s\n", s.Addr)
+	logger.Log.Info().Msgf("Listening on %s\n", s.Addr)
 
 	go func() {
 		if config.Logger == nil {
@@ -124,13 +125,13 @@ func StartUpIngestSRT() *types.MediaSession {
 		}
 
 		for m := range config.Logger.Listen() {
-			fmt.Fprintf(os.Stderr, "%#08x %s (in %s:%d)\n%s \n", m.SocketId, m.Topic, m.File, m.Line, m.Message)
+			logger.Log.Info().Msgf("%#08x %s (in %s:%d)\n%s \n", m.SocketId, m.Topic, m.File, m.Line, m.Message)
 		}
 	}()
 
 	go func() {
 		if err := s.ListenAndServe(); err != nil && !errors.Is(err, srt.ErrServerClosed) {
-			fmt.Fprintf(os.Stderr, "SRT Server: %s\n", err)
+			logger.Log.Info().Msgf("SRT Server: %s\n", err)
 			os.Exit(2)
 		}
 	}()
