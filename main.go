@@ -10,9 +10,8 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/servers/srt"
 	"github.com/OverlayFox/VRC-Stream-Haven/servers/upnp"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
+	"time"
 )
 
 func asFlagship() {
@@ -70,16 +69,21 @@ func getShipState() bool {
 func main() {
 	logger.InitLogger()
 
-	go func() {
-		srt.StartUpIngestSRT(6001, "helloworldhowareyou")
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-
-	select {
-	case <-quit:
+	server := &srt.Server{
+		Address:           "127.0.0.1:6001",
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		WriteQueueSize:    512,
+		UDPMaxPayloadSize: 1472,
+		Logger:            &logger.Log,
 	}
+
+	err := server.Initialize()
+	if err != nil {
+		logger.Log.Fatal().Err(err).Msg("failed to initialize SRT server")
+	}
+
+	select {}
 
 	//isFlagship := getShipState()
 	//
