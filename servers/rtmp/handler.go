@@ -8,7 +8,7 @@ import (
 )
 
 func StartRtmpServer() {
-	addr := "127.0.0.1:" + strconv.Itoa(haven.Haven.Flagship.RtmpIngestPort)
+	addr := "127.0.0.1:" + strconv.Itoa(int(haven.Haven.Flagship.RtmpIngestPort))
 	listen, _ := net.Listen("tcp4", addr)
 
 	var sess *types.MediaSession

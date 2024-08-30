@@ -5,7 +5,6 @@ go 1.21.6
 require (
 	github.com/bluenviron/gortsplib/v4 v4.7.2
 	github.com/datarhei/gosrt v0.7.0
-	github.com/joho/godotenv v1.5.1
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/oschwald/geoip2-golang v1.9.0
 	github.com/pion/rtp v1.8.3
@@ -26,6 +25,7 @@ require (
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
+	github.com/haivision/srtgo v0.0.0-20230627061225-a70d53fcd618 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/jaypipes/ghw v0.12.0 // indirect
 	github.com/jaypipes/pcidb v1.0.0 // indirect
@@ -35,6 +35,7 @@ require (
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.11.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect

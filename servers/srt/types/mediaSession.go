@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
-	srt "github.com/datarhei/gosrt"
+	gosrt "github.com/datarhei/gosrt"
 	"net"
 	"net/url"
 	"os"
@@ -20,11 +20,11 @@ type MediaSession struct {
 	LogTopics  string
 	Profile    string
 
-	Server *srt.Server
+	Server *gosrt.Server
 
 	// Map of publishing channels and a lock to serialize
 	// access to the map.
-	Channels map[string]srt.PubSub
+	Channels map[string]gosrt.PubSub
 	lock     sync.RWMutex
 }
 
@@ -44,14 +44,14 @@ func (s *MediaSession) log(who, action, path, message string, client net.Addr) {
 	logger.Log.Info().Msgf("%-10s %10s %s (%s) %s\n", who, action, path, client, message)
 }
 
-func (s *MediaSession) HandleConnect(req srt.ConnRequest) srt.ConnType {
-	var mode srt.ConnType = srt.SUBSCRIBE
+func (s *MediaSession) HandleConnect(req gosrt.ConnRequest) gosrt.ConnType {
+	var mode = gosrt.SUBSCRIBE
 	client := req.RemoteAddr()
 
 	channel := ""
 
 	if req.Version() == 4 {
-		mode = srt.PUBLISH
+		mode = gosrt.PUBLISH
 		channel = "/" + client.String()
 
 		req.SetPassphrase(s.Passphrase)
@@ -59,69 +59,59 @@ func (s *MediaSession) HandleConnect(req srt.ConnRequest) srt.ConnType {
 		streamId := req.StreamId()
 		path := streamId
 
-		if strings.HasPrefix(streamId, "publish:") {
-			mode = srt.PUBLISH
-			path = strings.TrimPrefix(streamId, "publish:")
-		} else if strings.HasPrefix(streamId, "subscribe:") {
-			path = strings.TrimPrefix(streamId, "subscribe:")
+		if strings.HasPrefix(streamId, "/ingest") {
+			mode = gosrt.PUBLISH
+			path = strings.TrimPrefix(streamId, "/ingest")
+		} else if strings.HasPrefix(streamId, "/egress") {
+			path = strings.TrimPrefix(streamId, "/egress")
 		}
 
 		u, err := url.Parse(path)
 		if err != nil {
-			return srt.REJECT
+			return gosrt.REJECT
 		}
 
 		if req.IsEncrypted() {
 			if err := req.SetPassphrase(s.Passphrase); err != nil {
 				s.log("CONNECT", "FORBIDDEN", u.Path, err.Error(), client)
-				return srt.REJECT
+				return gosrt.REJECT
 			}
 		}
 
-		// Check the Token
-		token := u.Query().Get("Token")
-		if len(s.Token) != 0 && s.Token != token {
-			s.log("CONNECT", "FORBIDDEN", u.Path, "invalid Token ("+token+")", client)
-			return srt.REJECT
-		}
-
-		// Check the App patch
+		// Check the app patch
 		if !strings.HasPrefix(u.Path, s.App) {
-			s.log("CONNECT", "FORBIDDEN", u.Path, "invalid App", client)
-			return srt.REJECT
+			s.log("CONNECT", "FORBIDDEN", u.Path, "invalid app", client)
+			return gosrt.REJECT
 		}
 
-		println(u.Path)
-		println(s.App)
-
-		if len(strings.TrimPrefix(u.Path, s.App)) == 0 {
-			s.log("CONNECT", "INVALID", u.Path, "stream name not provided", client)
-			return srt.REJECT
-		}
+		//if len(strings.TrimPrefix(u.Path, s.App)) == 0 {
+		//	s.log("CONNECT", "INVALID", u.Path, "stream name not provided", client)
+		//	return gosrt.REJECT
+		//}
 
 		channel = u.Path
 	} else {
-		return srt.REJECT
+		return gosrt.REJECT
 	}
 
 	s.lock.RLock()
 	pubsub := s.Channels[channel]
 	s.lock.RUnlock()
 
-	if mode == srt.PUBLISH && pubsub != nil {
+	if mode == gosrt.PUBLISH && pubsub != nil {
 		s.log("CONNECT", "CONFLICT", channel, "already publishing", client)
-		return srt.REJECT
+		return gosrt.REJECT
 	}
 
-	if mode == srt.SUBSCRIBE && pubsub == nil {
+	if mode == gosrt.SUBSCRIBE && pubsub == nil {
 		s.log("CONNECT", "NOTFOUND", channel, "not publishing", client)
-		return srt.REJECT
+		return gosrt.REJECT
 	}
 
 	return mode
 }
 
-func (s *MediaSession) HandlePublish(conn srt.Conn) {
+func (s *MediaSession) HandlePublish(conn gosrt.Conn) {
 	channel := ""
 	client := conn.RemoteAddr()
 	if client == nil {
@@ -133,7 +123,7 @@ func (s *MediaSession) HandlePublish(conn srt.Conn) {
 		channel = "/" + client.String()
 	} else if conn.Version() == 5 {
 		streamId := conn.StreamId()
-		path := strings.TrimPrefix(streamId, "publish:")
+		path := strings.TrimPrefix(streamId, "/ingest")
 
 		channel = path
 	} else {
@@ -146,7 +136,7 @@ func (s *MediaSession) HandlePublish(conn srt.Conn) {
 	s.lock.Lock()
 	pubsub := s.Channels[channel]
 	if pubsub == nil {
-		pubsub = srt.NewPubSub(srt.PubSubConfig{
+		pubsub = gosrt.NewPubSub(gosrt.PubSubConfig{
 			Logger: s.Server.Config.Logger,
 		})
 		s.Channels[channel] = pubsub
@@ -171,7 +161,7 @@ func (s *MediaSession) HandlePublish(conn srt.Conn) {
 
 	s.log("PUBLISH", "STOP", channel, "", client)
 
-	stats := &srt.Statistics{}
+	stats := &gosrt.Statistics{}
 	conn.Stats(stats)
 
 	fmt.Fprintf(os.Stderr, "%+v\n", stats)
@@ -179,7 +169,9 @@ func (s *MediaSession) HandlePublish(conn srt.Conn) {
 	conn.Close()
 }
 
-func (s *MediaSession) HandleSubscribe(conn srt.Conn) {
+func (s *MediaSession) HandleSubscribe(conn gosrt.Conn) {
+	logger.Log.Info().Msg("HandleSubscribe")
+
 	channel := ""
 	client := conn.RemoteAddr()
 	if client == nil {
@@ -191,9 +183,8 @@ func (s *MediaSession) HandleSubscribe(conn srt.Conn) {
 		channel = client.String()
 	} else if conn.Version() == 5 {
 		streamId := conn.StreamId()
-		path := strings.TrimPrefix(streamId, "subscribe:")
 
-		channel = path
+		channel = strings.TrimPrefix(streamId, "/egress")
 	} else {
 		s.log("SUBSCRIBE", "INVALID", channel, "unknown connection version", client)
 		conn.Close()
@@ -217,7 +208,7 @@ func (s *MediaSession) HandleSubscribe(conn srt.Conn) {
 
 	s.log("SUBSCRIBE", "STOP", channel, "", client)
 
-	stats := &srt.Statistics{}
+	stats := &gosrt.Statistics{}
 	conn.Stats(stats)
 
 	fmt.Fprintf(os.Stderr, "%+v\n", stats)

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/servers/srt/types"
-	srt "github.com/datarhei/gosrt"
+	gosrt "github.com/datarhei/gosrt"
 	"github.com/pkg/profile"
 	"os"
 	"os/signal"
@@ -14,57 +14,19 @@ import (
 	"strings"
 )
 
-//func SetupBackendSrt(passphrase string) *types.MediaSession {
-//	s := &types.MediaSession{
-//		Channels: make(map[string]srt.PubSub),
-//	}
-//
-//	for address := 6042; address < 6142; address++ {
-//		if utils.IsPortFree(fmt.Sprintf("%d", address)) {
-//			s.Addr = ":" + strconv.Itoa(address)
-//			break
-//		}
-//	}
-//
-//	if s.Addr == "" {
-//		fmt.Fprintf(os.Stderr,
-//			"No free port found between 6042/UDP and 6142/UDP"+
-//				"\nPlease ensure a port is free in this range\n")
-//		os.Exit(1)
-//	}
-//
-//	s.App = "/backend"
-//	s.Passphrase = passphrase
-//
-//	config := srt.DefaultConfig()
-//	config.KMPreAnnounce = 200
-//	config.KMRefreshRate = 10000
-//
-//	s.Server = &srt.Server{
-//		Addr:            s.Addr,
-//		HandleConnect:   s.HandleConnect,
-//		HandlePublish:   s.HandlePublish,
-//		HandleSubscribe: s.HandleSubscribe,
-//		Config:          &config,
-//	}
-//
-//	return s
-//}
+func srtMaxPayloadSize(u int) int {
+	return ((u - 16) / 188) * 188 // 16 = SRT header, 188 = MPEG-TS packet
+}
 
 func StartUpIngestSRT(port uint16, passphrase string) *types.MediaSession {
 	s := &types.MediaSession{
-		Channels: make(map[string]srt.PubSub),
+		Channels: make(map[string]gosrt.PubSub),
 	}
 
-	s.Addr = ":" + strconv.Itoa(int(port))
-	s.App = "/ingest"
+	s.Addr = "192.168.0.42:" + strconv.Itoa(int(port))
+	s.App = "/haven"
 	s.Passphrase = passphrase
-	//flag.StringVar(&s.addr, "addr", "", "address to listen on")
-	flag.StringVar(&s.App, "app", "", "path prefix for streamid")
-	flag.StringVar(&s.Token, "token", "", "token query param for streamid")
-	flag.StringVar(&s.Passphrase, "passphrase", "", "passphrase for de- and enrcypting the data")
-	flag.StringVar(&s.LogTopics, "logtopics", "", "topics for the log output")
-	flag.StringVar(&s.Profile, "profile", "", "enable profiling (cpu, mem, allocs, heap, rate, mutex, block, thread, trace)")
+	s.Profile = "cpu"
 
 	flag.Parse()
 
@@ -100,16 +62,15 @@ func StartUpIngestSRT(port uint16, passphrase string) *types.MediaSession {
 		defer profile.Start(profile.ProfilePath("."), profile.NoShutdownHook, p).Stop()
 	}
 
-	config := srt.DefaultConfig()
+	config := gosrt.DefaultConfig()
+	config.PayloadSize = uint32(srtMaxPayloadSize(1472))
+	config.EnforcedEncryption = true
 
 	if len(s.LogTopics) != 0 {
-		config.Logger = srt.NewLogger(strings.Split(s.LogTopics, ","))
+		config.Logger = gosrt.NewLogger(strings.Split(s.LogTopics, ","))
 	}
 
-	config.KMPreAnnounce = 200
-	config.KMRefreshRate = 10000
-
-	s.Server = &srt.Server{
+	s.Server = &gosrt.Server{
 		Addr:            s.Addr,
 		HandleConnect:   s.HandleConnect,
 		HandlePublish:   s.HandlePublish,
@@ -130,7 +91,7 @@ func StartUpIngestSRT(port uint16, passphrase string) *types.MediaSession {
 	}()
 
 	go func() {
-		if err := s.ListenAndServe(); err != nil && !errors.Is(err, srt.ErrServerClosed) {
+		if err := s.ListenAndServe(); err != nil && !errors.Is(err, gosrt.ErrServerClosed) {
 			logger.Log.Info().Msgf("SRT Server: %s\n", err)
 			os.Exit(2)
 		}

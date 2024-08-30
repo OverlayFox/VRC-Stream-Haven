@@ -10,7 +10,9 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/servers/srt"
 	"github.com/OverlayFox/VRC-Stream-Haven/servers/upnp"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 func asFlagship() {
@@ -33,15 +35,6 @@ func asFlagship() {
 	haven.MakeHaven(&[]*havenTypes.Escort{escort}, flagship, true)
 
 	rtmp.StartRtmpServer()
-
-	go func() {
-		srt.StartUpIngestSRT()
-	}()
-
-	go func() {
-		rtsp
-	}()
-
 }
 
 func asEscort() {
@@ -49,7 +42,7 @@ func asEscort() {
 
 	upnp.SetupPortForward(0, 8557, 0)
 
-	haven.MakeEscort()
+	//haven.MakeEscort()
 }
 
 func getShipState() bool {
@@ -77,13 +70,24 @@ func getShipState() bool {
 func main() {
 	logger.InitLogger()
 
-	isFlagship := getShipState()
+	go func() {
+		srt.StartUpIngestSRT(6001, "helloworldhowareyou")
+	}()
 
-	if isFlagship {
-		asFlagship()
-	} else {
-		asEscort()
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case <-quit:
 	}
+
+	//isFlagship := getShipState()
+	//
+	//if isFlagship {
+	//	asFlagship()
+	//} else {
+	//	asEscort()
+	//}
 
 	//lib.Scanner = bufio.NewScanner(os.Stdin)
 	//if lib.IsServer() {
