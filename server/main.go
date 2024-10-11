@@ -60,6 +60,14 @@ func startEscort() (chan error, error) {
 		return nil, err
 	}
 
+	go func() {
+		// @ToDo: Implement start of RTSP Server
+	}()
+
+	go func() {
+
+	}()
+
 	return errChan, nil
 }
 
