@@ -3,12 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/OverlayFox/VRC-Stream-Haven/ingest/rtmp"
-	"github.com/OverlayFox/VRC-Stream-Haven/ingest/srt"
-	"github.com/OverlayFox/VRC-Stream-Haven/server/haven"
-	havenTypes "github.com/OverlayFox/VRC-Stream-Haven/server/haven/types"
-	"github.com/OverlayFox/VRC-Stream-Haven/server/logger"
-	"github.com/OverlayFox/VRC-Stream-Haven/server/servers/upnp"
+	"github.com/OverlayFox/VRC-Stream-Haven/haven"
+	havenTypes "github.com/OverlayFox/VRC-Stream-Haven/haven/types"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/upnp"
+	srt "github.com/datarhei/gosrt"
 	"os"
 	"strings"
 	"time"
@@ -67,7 +66,7 @@ func getShipState() bool {
 }
 
 func main() {
-	logger.InitLogger()
+	mainLogger := logger.NewLoggerWithName("Main")
 
 	server := &srt.Server{
 		Address:           "127.0.0.1:6001",

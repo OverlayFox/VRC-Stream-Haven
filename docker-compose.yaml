@@ -1,0 +1,19 @@
+services:
+  vrc-haven:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080/tcp" # API
+      - "8890:8890/udp" # SRT Input
+      - "554:554/udp" # RTSP Input
+    volumes:
+      - type: tmpfs
+        target: /var/www
+        tmpfs:
+          size: 100000000
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: 16384M
