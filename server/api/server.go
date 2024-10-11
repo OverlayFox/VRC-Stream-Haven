@@ -1,8 +1,8 @@
 package api
 
 import (
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/api/paths/auth"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/api/paths/escort"
+	"github.com/OverlayFox/VRC-Stream-Haven/ingest/api/paths/auth"
+	"github.com/OverlayFox/VRC-Stream-Haven/ingest/api/paths/escort"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"net/http"

@@ -2,8 +2,8 @@ package haven
 
 import (
 	"encoding/json"
-	"github.com/OverlayFox/VRC-Stream-Haven/haven/types/responses"
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/server/haven/types/responses"
+	"github.com/OverlayFox/VRC-Stream-Haven/server/logger"
 	"math/rand"
 	"net/http"
 	"time"

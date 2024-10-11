@@ -3,15 +3,15 @@ package upnp
 import (
 	"context"
 	"errors"
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/upnp/types"
+	"github.com/OverlayFox/VRC-Stream-Haven/server/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/server/servers"
+	types2 "github.com/OverlayFox/VRC-Stream-Haven/server/servers/upnp/types"
 	"github.com/OverlayFox/VRC-Stream-Haven/ui"
 	"github.com/huin/goupnp/dcps/internetgateway2"
 	"golang.org/x/sync/errgroup"
 )
 
-func forwardPorts(portMappings []types.PortMapping, client types.RouterClient) error {
+func forwardPorts(portMappings []types2.PortMapping, client types2.RouterClient) error {
 	localIp, err := servers.GetLocalIP()
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func forwardPorts(portMappings []types.PortMapping, client types.RouterClient) e
 	return nil
 }
 
-func getRouterClient(ctx context.Context) (types.RouterClient, error) {
+func getRouterClient(ctx context.Context) (types2.RouterClient, error) {
 	tasks, _ := errgroup.WithContext(ctx)
 
 	var ip1Clients []*internetgateway2.WANIPConnection1
@@ -96,9 +96,9 @@ func SetupPortForward(srtPort, rtspPort, apiPort uint16) {
 		logger.Log.Fatal().Err(err).Msg("Could not get local IP")
 	}
 
-	var ports []types.PortMapping
+	var ports []types2.PortMapping
 	if srtPort != 0 {
-		ports = append(ports, types.PortMapping{
+		ports = append(ports, types2.PortMapping{
 			ExternalPort: srtPort,
 			Protocol:     "UDP",
 			InternalPort: srtPort,
@@ -109,7 +109,7 @@ func SetupPortForward(srtPort, rtspPort, apiPort uint16) {
 	}
 
 	if rtspPort != 0 {
-		ports = append(ports, types.PortMapping{
+		ports = append(ports, types2.PortMapping{
 			ExternalPort: rtspPort,
 			Protocol:     "UDP",
 			InternalPort: rtspPort,
@@ -120,7 +120,7 @@ func SetupPortForward(srtPort, rtspPort, apiPort uint16) {
 	}
 
 	if apiPort != 0 {
-		ports = append(ports, types.PortMapping{
+		ports = append(ports, types2.PortMapping{
 			ExternalPort: apiPort,
 			Protocol:     "TCP",
 			InternalPort: apiPort,

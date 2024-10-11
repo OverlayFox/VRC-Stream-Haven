@@ -2,8 +2,7 @@ package paths
 
 import (
 	"encoding/json"
-	"github.com/OverlayFox/VRC-Stream-Haven/servers/api"
-	"github.com/dgrijalva/jwt-go"
+	api2 "github.com/OverlayFox/VRC-Stream-Haven/server/servers/api"
 	"io"
 	"net/http"
 	"time"
@@ -16,7 +15,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bodyJson, err := api.Decrypt(string(bodyBytes), api.PrePassphrase)
+	bodyJson, err := api2.Decrypt(string(bodyBytes), api2.PrePassphrase)
 	if err != nil {
 		http.Error(w, "Failed to decrypt body", http.StatusInternalServerError)
 		return
@@ -28,12 +27,12 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.Password == api.Password {
+	if body.Password == api2.Password {
 		token := jwt.New(jwt.SigningMethodHS256)
 		claims := token.Claims.(jwt.MapClaims)
 		claims["username"] = body.Username
 		claims["exp"] = time.Now().Add(time.Hour * 1).Unix()
-		tokenString, err := token.SignedString(api.PrePassphrase)
+		tokenString, err := token.SignedString(api2.PrePassphrase)
 		if err != nil {
 			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 			return
@@ -45,7 +44,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		encryptedData, err := api.Encrypt(string(jsonData), api.PrePassphrase)
+		encryptedData, err := api2.Encrypt(string(jsonData), api2.PrePassphrase)
 		w.WriteHeader(http.StatusOK)
 		_, err = w.Write([]byte(encryptedData))
 		if err != nil {
