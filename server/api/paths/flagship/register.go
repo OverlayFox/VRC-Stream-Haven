@@ -1,10 +1,11 @@
-package paths
+package flagship
 
 import (
 	"encoding/json"
-	"github.com/OverlayFox/VRC-Stream-Haven/server/haven"
-	"github.com/OverlayFox/VRC-Stream-Haven/server/haven/types"
-	api2 "github.com/OverlayFox/VRC-Stream-Haven/server/servers/api"
+	"github.com/OverlayFox/VRC-Stream-Haven/api"
+	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
 	"net"
 	"net/http"
@@ -17,7 +18,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bodyJson, err := api2.Decrypt(string(bodyBytes), api2.PrePassphrase)
+	bodyJson, err := api.Decrypt(string(bodyBytes))
 	if err != nil {
 		http.Error(w, "Failed to decrypt body", http.StatusInternalServerError)
 		return
@@ -29,28 +30,36 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//remove escort if it already exists
-	escorts := *haven.Haven.Escorts
-	for i := 0; i < len(escorts); {
-		if escorts[i].IpAddress.Equal(net.ParseIP(body.IpAddress)) {
-			escorts = append(escorts[:i], escorts[i+1:]...)
-		} else {
-			i++
-		}
+	err = harbor.Haven.RemoveEscort(body.Username)
+	if err == nil {
+		logger.HavenLogger.Warn().Msgf("Escort %s already exists, removing it", body.Username)
 	}
-	haven.Haven.Escorts = &escorts
 
-	*haven.Haven.Escorts = append(*haven.Haven.Escorts, &types.Escort{
+	harbor.Haven.AddEscort(&types.Escort{
 		IpAddress:      net.ParseIP(body.IpAddress),
 		RtspEgressPort: body.RtspEgressPort,
 		Latitude:       body.Latitude,
 		Longitude:      body.Longitude,
 		Username:       body.Username,
-		Passphrase:     body.Passphrase,
 	})
 
+	response := RegisterResponse{
+		Success:     true,
+		IpAddress:   harbor.Haven.Flagship.Ship.IpAddress.String(),
+		Port:        harbor.Haven.Flagship.SrtIngestPort,
+		Protocol:    "SRT",
+		Application: harbor.Haven.Flagship.Application,
+		StreamKey:   harbor.Haven.Flagship.Passphrase,
+	}
+
+	responseJson, err := response.ToJson()
+	if err != nil {
+		http.Error(w, "Failed to parse response to json string", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	encrypt, err := api2.Encrypt("Successfully registered escort", []byte(body.Passphrase))
+	encrypt, err := api.Encrypt(responseJson)
 	if err != nil {
 		http.Error(w, "Failed to encrypt response", http.StatusInternalServerError)
 		return

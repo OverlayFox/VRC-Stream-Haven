@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/OverlayFox/VRC-Stream-Haven/ingest/api/paths/auth"
-	"github.com/OverlayFox/VRC-Stream-Haven/ingest/api/paths/escort"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/api/paths/flagship"
 )
 
 var PrePassphrase []byte
@@ -49,11 +49,16 @@ func localMiddleware(next http.Handler) http.Handler {
 }
 
 // InitApi initializes the mux router and sets up the routes
-func InitApi() *mux.Router {
+func InitApi(isNode bool) *mux.Router {
 	r := mux.NewRouter()
-	// frontfacing API
-	r.HandleFunc("/auth/login", auth.LoginHandler).Methods("POST")
-	r.Handle("/escort/register", jwtMiddleware(http.HandlerFunc(escort.RegisterHandler))).Methods("POST")
+
+	if isNode {
+		r.Handle("/escort/streamInfo", jwtMiddleware(http.HandlerFunc(flagship.RegisterHandler))).Methods("GET")
+
+		return r
+	}
+
+	r.Handle("/flagship/register", jwtMiddleware(http.HandlerFunc(flagship.RegisterHandler))).Methods("POST")
 
 	// backfacing API
 	//r.Handle("/auth/ingest", localMiddleware(http.HandlerFunc(authIngest))).Methods("POST")

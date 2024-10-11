@@ -1,4 +1,4 @@
-package responses
+package types
 
 type IpApi struct {
 	Latitude  float64 `json:"lat"`

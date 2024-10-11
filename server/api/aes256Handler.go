@@ -4,21 +4,24 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"io"
+	"os"
 )
 
-func DeriveKey(passphrase string) []byte {
-	hash := sha256.New()
-	hash.Write([]byte(passphrase))
-	return hash.Sum(nil)
+var Key = []byte(os.Getenv("API_PASSPHRASE"))
+
+func init() {
+	if len(Key) == 0 {
+		logger.HavenLogger.Fatal().Msg("API_PASSPHRASE not set. Please set a API_PASSPHRASE environment variable.")
+	}
 }
 
 // Encrypt encrypts a plaintext with a passphrase and return a base64 encoded string
-func Encrypt(plainText string, key []byte) (string, error) {
-	block, err := aes.NewCipher(key)
+func Encrypt(plainText string) (string, error) {
+	block, err := aes.NewCipher(Key)
 	if err != nil {
 		return "", err
 	}
@@ -35,13 +38,13 @@ func Encrypt(plainText string, key []byte) (string, error) {
 }
 
 // Decrypt decrypts a base64 encoded string with a passphrase and return the plaintext
-func Decrypt(encryptedText string, key []byte) (string, error) {
+func Decrypt(encryptedText string) (string, error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedText)
 	if err != nil {
 		return "", err
 	}
 
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(Key)
 	if err != nil {
 		return "", err
 	}

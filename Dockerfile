@@ -47,7 +47,9 @@ RUN set -eux; \
 # set default envs
 ENV USER=$USERNAME
 ENV MEDIA_MTX_CONFIG_PATH="/etc/hermes/mediamtx.yml"
-ENV IS_NODE=1
+ENV IS_NODE="False"
+ENV API_PASSPHRASE="helloworldhowareyou"
+ENV API_URL="http://localhost:8080"
 
 #
 # copy files

@@ -1,9 +1,9 @@
-package haven
+package harbor
 
 import (
 	"encoding/json"
-	"github.com/OverlayFox/VRC-Stream-Haven/server/haven/types/responses"
-	"github.com/OverlayFox/VRC-Stream-Haven/server/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"math/rand"
 	"net/http"
 	"time"
@@ -22,18 +22,18 @@ func GenerateKey() string {
 }
 
 // GetPublicIpAddress Gets the Public IP Address of the Server.
-func GetPublicIpAddress() (responses.IpApi, error) {
+func GetPublicIpAddress() (types.IpApi, error) {
 	response, err := http.Get("http://ip-api.com/json")
 	if err != nil {
-		logger.Log.Error().Err(err).Msg("IP-API is not reachable.")
-		return responses.IpApi{}, err
+		logger.HavenLogger.Error().Err(err).Msg("IP-API is not reachable.")
+		return types.IpApi{}, err
 	}
 
-	var body responses.IpApi
+	var body types.IpApi
 	err = json.NewDecoder(response.Body).Decode(&body)
 	if err != nil {
-		logger.Log.Error().Err(err).Msg("Could not decode IP-API response.")
-		return responses.IpApi{}, err
+		logger.HavenLogger.Error().Err(err).Msg("Could not decode IP-API response.")
+		return types.IpApi{}, err
 	}
 
 	return body, nil
