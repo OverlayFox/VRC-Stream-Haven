@@ -37,7 +37,6 @@ func NewMediaSession(conn net.Conn) *MediaSession {
 }
 
 func (sess *MediaSession) Init() {
-
 	sess.handle.OnPlay(func(app, streamName string, start, duration float64, reset bool) rtmp.StatusCode {
 		if source := center.find(streamName); source == nil {
 			return rtmp.NETSTREAM_PLAY_NOTFOUND

@@ -1,159 +1,112 @@
-// Package srt contains a SRT server.
 package srt
 
 import (
-	"context"
 	"errors"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
-	"github.com/rs/zerolog"
-	"sync"
-	"time"
-
 	srt "github.com/datarhei/gosrt"
+	"net"
+	"os"
+	"os/signal"
+	"strings"
+	"sync"
 )
 
-// ErrConnNotFound is returned when a connection is not found.
-var ErrConnNotFound = errors.New("connection not found")
-
-func srtMaxPayloadSize(u int) int {
-	return ((u - 16) / 188) * 188 // 16 = SRT header, 188 = MPEG-TS packet
-}
-
-type srtNewConnReq struct {
-	connReq srt.ConnRequest
-	res     chan *conn
-}
-
-// Server is a SRT server.
 type Server struct {
-	Address           string
-	ReadTimeout       time.Duration
-	WriteTimeout      time.Duration
-	WriteQueueSize    int
-	UDPMaxPayloadSize int
-	Logger            *zerolog.Logger
+	addr       string
+	app        string
+	passphrase string
+	logtopics  string
+	profile    string
 
-	ctx       context.Context
-	ctxCancel func()
-	wg        sync.WaitGroup
-	ln        srt.Listener
-	conns     map[*conn]struct{}
+	server *srt.Server
 
-	// in
-	chNewConnRequest chan srtNewConnReq
-	chAcceptErr      chan error
-	chCloseConn      chan *conn
+	channels map[string]srt.PubSub
+	lock     sync.RWMutex
 }
 
-// Initialize initializes the server.
-func (s *Server) Initialize() error {
-	conf := srt.DefaultConfig()
-	conf.ConnectionTimeout = s.ReadTimeout
-	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
-
-	var err error
-	s.ln, err = srt.Listen("srt", s.Address, conf)
-	if err != nil {
-		return err
+// listenAndServe starts the SRT server.
+// It blocks until an error happens.
+// If the error is ErrServerClosed the server has shutdown normally.
+func (s *Server) listenAndServe() error {
+	if len(s.app) == 0 {
+		s.app = "/"
 	}
 
-	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
+	return s.server.ListenAndServe()
+}
 
-	s.conns = make(map[*conn]struct{})
-	s.chNewConnRequest = make(chan srtNewConnReq)
-	s.chAcceptErr = make(chan error)
-	s.chCloseConn = make(chan *conn)
+func (s *Server) log(who, action, path, message string, client net.Addr) {
+	logger.Log.Error().Msgf("%s %s %s %s %s", who, action, path, message, client)
+}
 
-	logger.Log.Info().Msgf("listener opened on %s (SRT)", s.Address)
+func (s *Server) handleConnect(req srt.ConnRequest) {
+	client := req.RemoteAddr()
 
-	l := &listener{
-		ln:     s.ln,
-		wg:     &s.wg,
-		parent: s,
+	channel := ""
+
+	if req.Version() != 5 {
+		s.log("Connect", "Forbidden", req.StreamId(), "Unsupported version", client)
+		req.Reject(srt.REJ_VERSION)
+		return
 	}
-	l.initialize()
 
-	s.wg.Add(1)
-	go s.run()
-
-	return nil
-}
-
-// Close closes the server.
-func (s *Server) Close() {
-	logger.Log.Info().Msgf("listener is closing")
-	s.ctxCancel()
-	s.wg.Wait()
-}
-
-func (s *Server) run() {
-	defer s.wg.Done()
-
-outer:
-	for {
-		select {
-		case err := <-s.chAcceptErr:
-			logger.Log.Error().Err(err)
-			break outer
-
-		case req := <-s.chNewConnRequest:
-			c := &conn{
-				parentCtx:         s.ctx,
-				readTimeout:       s.ReadTimeout,
-				writeTimeout:      s.WriteTimeout,
-				writeQueueSize:    s.WriteQueueSize,
-				udpMaxPayloadSize: s.UDPMaxPayloadSize,
-				connReq:           req.connReq,
-				wg:                &s.wg,
-				parent:            s,
-			}
-			c.initialize()
-			s.conns[c] = struct{}{}
-			req.res <- c
-
-		case c := <-s.chCloseConn:
-			delete(s.conns, c)
-
-		case <-s.ctx.Done():
-			break outer
+	if !strings.HasPrefix(req.StreamId(), "publish:") {
+		accept, err := req.Accept()
+		if err != nil {
+			s.log("Connect", "Error", req.StreamId(), "Could not accept incoming connection", client)
+			return
 		}
-	}
 
-	s.ctxCancel()
-
-	s.ln.Close()
-}
-
-// newConnRequest is called by srtListener.
-func (s *Server) newConnRequest(connReq srt.ConnRequest) *conn {
-	req := srtNewConnReq{
-		connReq: connReq,
-		res:     make(chan *conn),
-	}
-
-	select {
-	case s.chNewConnRequest <- req:
-		c := <-req.res
-
-		return c.new(req)
-
-	case <-s.ctx.Done():
-		return nil
+		accept.
 	}
 }
 
-// acceptError is called by srtListener.
-func (s *Server) acceptError(err error) {
-	select {
-	case s.chAcceptErr <- err:
-	case <-s.ctx.Done():
+func Initialize() {
+	s := Server{
+		channels: make(map[string]srt.PubSub),
 	}
-}
 
-// closeConn is called by conn.
-func (s *Server) closeConn(c *conn) {
-	select {
-	case s.chCloseConn <- c:
-	case <-s.ctx.Done():
+	s.logtopics = "connection:close,connection:error,connection:new,listen"
+
+	config := srt.DefaultConfig()
+	config.Logger = srt.NewLogger(strings.Split(s.logtopics, ","))
+	config.KMPreAnnounce = 200
+	config.KMRefreshRate = 10000
+
+	s.server = &srt.Server{
+		Addr:            "0.0.0.0:6001",
+		Config:          &config,
+		HandleConnect:   nil,
+		HandlePublish:   nil,
+		HandleSubscribe: nil,
+	}
+
+	go func() {
+		if config.Logger == nil {
+			return
+		}
+
+		for m := range config.Logger.Listen() {
+			logger.Log.Info().Msgf("%#08x %s (in %s:%d)\n%s \n", m.SocketId, m.Topic, m.File, m.Line, m.Message)
+		}
+	}()
+
+	go func() {
+		err := s.listenAndServe()
+		if err != nil && !errors.Is(err, srt.ErrServerClosed) {
+			logger.Log.Fatal().Err(err).Msg("Failed to start SRT server or a unexpected error occurred")
+		}
+	}()
+
+	logger.Log.Info().Msgf("SRT Server is listening on %s", s.server.Addr)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+
+	s.server.Shutdown()
+
+	if config.Logger != nil {
+		config.Logger.Close()
 	}
 }
