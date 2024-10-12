@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"github.com/oschwald/geoip2-golang"
+	"net"
 )
 
 // Haven combines the ServerStruct and NodeStruct information.
@@ -24,7 +25,12 @@ func (h *Haven) GetClosestEscort(city *geoip2.City) *Escort {
 	for _, escort := range *h.Escorts {
 		distance, err := escort.GetDistance(city)
 		if err != nil {
-			return h.Flagship.Ship
+			return &Escort{
+				IpAddress:      h.Flagship.IpAddress,
+				RtspEgressPort: h.Flagship.RtspEgressPort,
+				Latitude:       h.Flagship.Latitude,
+				Longitude:      h.Flagship.Longitude,
+			}
 		}
 
 		if closestEscort.Escort == nil || distance < closestEscort.Distance {
@@ -36,27 +42,27 @@ func (h *Haven) GetClosestEscort(city *geoip2.City) *Escort {
 	return closestEscort.Escort
 }
 
-func (h *Haven) GetEscort(username string) (*Escort, error) {
+func (h *Haven) GetEscort(ip net.IP) (*Escort, error) {
 	for _, escort := range *h.Escorts {
-		if escort.Username == username {
+		if ip.Equal(escort.IpAddress) {
 			return escort, nil
 		}
 	}
 
-	return nil, fmt.Errorf("could not find escort with username: %s", username)
+	return nil, fmt.Errorf("could not find escort with IP: %s", ip.String())
 }
 
 func (h *Haven) AddEscort(newEscort *Escort) {
 	*h.Escorts = append(*h.Escorts, newEscort)
 }
 
-func (h *Haven) RemoveEscort(username string) error {
+func (h *Haven) RemoveEscort(ip net.IP) error {
 	for i, escort := range *h.Escorts {
-		if escort.Username == username {
+		if ip.Equal(escort.IpAddress) {
 			*h.Escorts = append((*h.Escorts)[:i], (*h.Escorts)[i+1:]...)
 			return nil
 		}
 	}
 
-	return fmt.Errorf("could not find escort with username: %s", username)
+	return fmt.Errorf("could not find escort with IP: %s", ip)
 }

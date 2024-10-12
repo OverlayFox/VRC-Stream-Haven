@@ -13,11 +13,9 @@ type Escort struct {
 	RtspEgressPort uint16  `yaml:"rtspEgressPort"`
 	Latitude       float64 `yaml:"lat"`
 	Longitude      float64 `yaml:"lon"`
-	Username       string  `yaml:"username"`
-	Passphrase     string  `yaml:"passphrase"`
 }
 
-func (e *Escort) getPoint() *geo.Point {
+func (e *Escort) getGeoPoint() *geo.Point {
 	return geo.NewPoint(e.Latitude, e.Longitude)
 }
 
@@ -29,5 +27,5 @@ func (e *Escort) GetDistance(city *geoip2.City) (float64, error) {
 	}
 	clientLocation := geo.NewPoint(city.Location.Latitude, city.Location.Longitude)
 
-	return clientLocation.GreatCircleDistance(e.getPoint()), nil
+	return clientLocation.GreatCircleDistance(e.getGeoPoint()), nil
 }
