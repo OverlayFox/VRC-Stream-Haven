@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest"
 	"net/http"
 	"os"
 	"strings"
@@ -65,9 +66,10 @@ func startEscort() (chan error, error) {
 		// @ToDo: Implement start of RTSP Server
 	}()
 
-	go func() {
-		// @ToDo: Implement pull of SRT Stream from Flagship
-	}()
+	err = ingest.InitIngest(true)
+	if err != nil {
+		return nil, err
+	}
 
 	return errChan, nil
 }

@@ -1,6 +1,9 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/oschwald/geoip2-golang"
+)
 
 // Haven combines the ServerStruct and NodeStruct information.
 type Haven struct {
@@ -9,8 +12,28 @@ type Haven struct {
 	IsServer bool       `yaml:"isServer"`
 }
 
-func (h *Haven) GetEscorts() *[]*Escort {
-	return h.Escorts
+// GetClosestEscort returns the closest escort to a client.
+// The city should be extracted from the IP request made by a client wanting to watch the stream.
+func (h *Haven) GetClosestEscort(city *geoip2.City) *Escort {
+	type ClosestEscort struct {
+		Escort   *Escort
+		Distance float64
+	}
+
+	var closestEscort ClosestEscort
+	for _, escort := range *h.Escorts {
+		distance, err := escort.GetDistance(city)
+		if err != nil {
+			return h.Flagship.Ship
+		}
+
+		if closestEscort.Escort == nil || distance < closestEscort.Distance {
+			closestEscort.Escort = escort
+			closestEscort.Distance = distance
+		}
+	}
+
+	return closestEscort.Escort
 }
 
 func (h *Haven) GetEscort(username string) (*Escort, error) {

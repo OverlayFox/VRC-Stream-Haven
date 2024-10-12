@@ -46,7 +46,7 @@ RUN set -eux; \
 #
 # set default envs
 ENV USER=$USERNAME
-ENV MEDIA_MTX_CONFIG_PATH="/etc/hermes/mediamtx.yml"
+ENV MEDIA_MTX_CONFIG_PATH="/etc/haven/mediamtx.yml"
 ENV IS_NODE="False"
 ENV API_PASSPHRASE="helloworldhowareyou"
 ENV API_URL="http://localhost:8080"

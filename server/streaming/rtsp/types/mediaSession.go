@@ -1,9 +1,12 @@
 package rtspServer
 
 import (
+	"github.com/OverlayFox/VRC-Stream-Haven/geoLocator"
+	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"log"
 	"net"
-	"os"
+	"strconv"
 	"sync"
 
 	"github.com/bluenviron/gortsplib/v4"
@@ -56,27 +59,31 @@ func (sh *RtspMediaSession) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx
 		}, nil, nil
 	}
 
-	if os.Getenv("IS_NODE") == "False" {
-		remoteHost, _, _ := net.SplitHostPort(ctx.Conn.NetConn().RemoteAddr().String())
-		localHost, _, _ := net.SplitHostPort(ctx.Conn.NetConn().LocalAddr().String())
+	if harbor.Haven.IsServer {
+		clientIp := ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 
-		if remoteHost != localHost {
-			latitude, longitude := lib.LocateIp(ctx.Conn.NetConn().RemoteAddr().String())
-			closestNode := lib.GetDistance(latitude, longitude, lib.Config.Nodes)
-			log.Printf("Client IP-Address: %v", ctx.Conn.NetConn().RemoteAddr().String())
-
-			if !closestNode.IpAddress.Equal(lib.Config.Server.IpAddress) {
-				log.Printf("Send Client to node: %v", closestNode.IpAddress)
-				return &base.Response{
-					StatusCode: base.StatusMovedPermanently,
-					Header: base.Header{
-						"Location": base.HeaderValue{"rtsp://" + closestNode.IpAddress.String() + ":" + closestNode.RtspStreamingPortString()},
-					},
-				}, nil, nil
-			} else {
-				log.Printf("Send Client to SrtServer: %v", lib.Config.Server.IpAddress)
-			}
+		city, err := geoLocator.LocateIp(clientIp.String())
+		if err != nil {
+			logger.HavenLogger.Warn().Err(err).Msg("Failed to locate IP")
+			return &base.Response{
+				StatusCode: base.StatusOK,
+			}, sh.Stream, nil
 		}
+
+		closestEscort := harbor.Haven.GetClosestEscort(city)
+		if closestEscort == harbor.Haven.Flagship.Ship {
+			return &base.Response{
+				StatusCode: base.StatusOK,
+			}, sh.Stream, nil
+		}
+
+		logger.HavenLogger.Info().Msgf("Redirecting to %s", closestEscort.Username)
+		return &base.Response{
+			StatusCode: base.StatusMovedPermanently,
+			Header: base.Header{
+				"Location": base.HeaderValue{"rtsp://" + closestEscort.IpAddress.String() + ":" + strconv.FormatUint(uint64(closestEscort.RtspEgressPort), 10)},
+			},
+		}, nil, nil
 	}
 
 	return &base.Response{

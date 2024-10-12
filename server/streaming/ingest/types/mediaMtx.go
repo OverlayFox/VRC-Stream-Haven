@@ -228,7 +228,7 @@ func (m *MediaMtxConfig) BuildEscortPath(flagshipSrtIngest, srtPassphrase string
 				Source:                     flagshipSrtIngest,
 				SrtReadPassphrase:          srtPassphrase,
 				SourceOnDemand:             true,
-				SourceOnDemandStartTimeout: "1s",
+				SourceOnDemandStartTimeout: "10s",
 				SourceOnDemandCloseAfter:   "120s",
 			},
 		},
@@ -239,18 +239,15 @@ func (m *MediaMtxConfig) BuildFlagshipPath(srtPassphrase string) Paths {
 	return Paths{
 		Path: map[string]Path{
 			"egress/flagship": {
-				Source:                     "publisher",
-				SrtPublishPassphrase:       srtPassphrase,
-				SrtReadPassphrase:          srtPassphrase,
-				SourceOnDemand:             true,
-				SourceOnDemandStartTimeout: "1s",
-				SourceOnDemandCloseAfter:   "120s",
+				Source:               "publisher",
+				SrtPublishPassphrase: srtPassphrase,
+				SrtReadPassphrase:    srtPassphrase,
 			},
 		},
 	}
 }
 
-func (m *MediaMtxConfig) SetConfig(srtPassphrase string) MediaMtxConfig {
+func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths) MediaMtxConfig {
 	return MediaMtxConfig{
 		LogLevel:          "info",
 		LogDestinations:   []string{"stdout"},
@@ -342,10 +339,6 @@ func (m *MediaMtxConfig) SetConfig(srtPassphrase string) MediaMtxConfig {
 			RunOnRecordSegmentComplete: "",
 		},
 
-		Paths: Paths{
-			Path: map[string]Path{
-				"ingest/schlick": {},
-			},
-		},
+		Paths: pathsConfig,
 	}
 }

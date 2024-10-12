@@ -69,6 +69,7 @@ func RegisterEscort(escort *types.Escort) error {
 		Application:   decodedBody.Application,
 		Passphrase:    decodedBody.StreamKey,
 	}
+	harbor.Haven.IsServer = false
 
 	return nil
 }
