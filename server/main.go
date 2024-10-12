@@ -66,7 +66,7 @@ func startEscort() (chan error, error) {
 	}()
 
 	go func() {
-
+		// @ToDo: Implement pull of SRT Stream from Flagship
 	}()
 
 	return errChan, nil
