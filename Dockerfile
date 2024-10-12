@@ -48,7 +48,7 @@ RUN set -eux; \
 ENV USER=$USERNAME
 ENV MEDIA_MTX_CONFIG_PATH="/etc/haven/mediamtx.yml"
 ENV IS_NODE="False"
-ENV API_PASSPHRASE="helloworldhowareyou"
+ENV PASSPHRASE="helloworldhowareyou"
 ENV API_URL="http://localhost:8080"
 
 #
