@@ -12,11 +12,11 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 )
 
-var Key = []byte(os.Getenv("API_PASSPHRASE"))
+var Key = []byte(os.Getenv("PASSPHRASE"))
 
 func init() {
-	if len(Key) == 0 {
-		logger.HavenLogger.Fatal().Msg("API_PASSPHRASE not set. Please set a API_PASSPHRASE environment variable.")
+	if len(Key) < 10 {
+		logger.HavenLogger.Fatal().Msg("PASSPHRASE not set or shorter than 10 characters.")
 	}
 }
 

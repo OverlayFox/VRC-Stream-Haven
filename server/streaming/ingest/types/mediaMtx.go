@@ -1,5 +1,10 @@
 package types
 
+import (
+	"fmt"
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
+)
+
 type MediaMtxConfig struct {
 	// LogLevel sets the verbosity of the program
 	//
@@ -221,15 +226,18 @@ type Path struct {
 	RunOnRecordSegmentComplete string `yaml:"runOnRecordSegmentComplete"`
 }
 
-func (m *MediaMtxConfig) BuildEscortPath(flagshipSrtIngest, srtPassphrase string) Paths {
+func (m *MediaMtxConfig) BuildEscortPath(flagship *types.Flagship) Paths {
+	pullUrl := fmt.Sprintf("srt://%s:%d/egress/flagship?passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
+
 	return Paths{
 		Path: map[string]Path{
 			"ingest/flagship": {
-				Source:                     flagshipSrtIngest,
-				SrtReadPassphrase:          srtPassphrase,
+				Source:                     pullUrl,
+				SrtReadPassphrase:          flagship.Passphrase,
 				SourceOnDemand:             true,
 				SourceOnDemandStartTimeout: "10s",
 				SourceOnDemandCloseAfter:   "120s",
+				MaxReaders:                 1,
 			},
 		},
 	}
@@ -289,7 +297,7 @@ func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths) Me
 		Hls:    false,
 		WebRTC: false,
 
-		Rtmp:           true,
+		Rtmp:           false,
 		RtmpAddress:    ":1935",
 		RtmpEncryption: "no",
 		RtmpsAddress:   ":1936",
@@ -306,7 +314,7 @@ func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths) Me
 			SourceOnDemandStartTimeout: "10s",
 			SourceOnDemandCloseAfter:   "10s",
 
-			MaxReaders:        8,
+			MaxReaders:        0,
 			OverridePublisher: false,
 
 			SrtReadPassphrase:    srtPassphrase,

@@ -1,17 +1,14 @@
 package api
 
 import (
-	"net/http"
-	"strings"
-
+	"github.com/OverlayFox/VRC-Stream-Haven/api/flagship/paths/register"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
-
-	"github.com/OverlayFox/VRC-Stream-Haven/api/paths/flagship"
+	"net/http"
+	"os"
 )
 
-var PrePassphrase []byte
-var Password string
+var Passphrase = []byte(os.Getenv("PASSPHRASE"))
 
 // jwtMiddleware checks for a valid JWT token in the Authorization header
 func jwtMiddleware(next http.Handler) http.Handler {
@@ -24,7 +21,7 @@ func jwtMiddleware(next http.Handler) http.Handler {
 
 		tokenString = tokenString[len("Bearer "):]
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return PrePassphrase, nil
+			return Passphrase, nil
 		})
 
 		if err != nil || !token.Valid {
@@ -36,34 +33,18 @@ func jwtMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// localMiddleware checks if the request is coming from localhost
-func localMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
-		if !strings.HasPrefix(ip, "127.0.0.1") {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
+// InitFlagshipApi initializes the mux router and sets up the routes for a Flagship Endpoint.
+func InitFlagshipApi() *mux.Router {
+	r := mux.NewRouter()
+	r.Handle("/flagship/register", jwtMiddleware(http.HandlerFunc(register.AddEscortToHaven))).Methods("POST")
 
-		next.ServeHTTP(w, r)
-	})
+	return r
 }
 
-// InitApi initializes the mux router and sets up the routes
-func InitApi(isNode bool) *mux.Router {
+// InitEscortApi initializes the mux router and sets up the routes for a Escort Endpoint.
+func InitEscortApi() *mux.Router {
 	r := mux.NewRouter()
-
-	if isNode {
-		r.Handle("/escort/streamInfo", jwtMiddleware(http.HandlerFunc(flagship.RegisterHandler))).Methods("GET")
-
-		return r
-	}
-
-	r.Handle("/flagship/register", jwtMiddleware(http.HandlerFunc(flagship.RegisterHandler))).Methods("POST")
-
-	// backfacing API
-	//r.Handle("/auth/ingest", localMiddleware(http.HandlerFunc(authIngest))).Methods("POST")
-	//r.Handle("/ingest/receive", localMiddleware(http.HandlerFunc(ingestReceive))).Methods("POST")
+	r.Handle("/escort/info", jwtMiddleware(http.HandlerFunc(register.AddEscortToHaven))).Methods("GET")
 
 	return r
 }

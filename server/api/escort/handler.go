@@ -1,32 +1,36 @@
-package api
+package escort
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"github.com/OverlayFox/VRC-Stream-Haven/api"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/flagship/paths/register"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"io"
 	"net"
 	"net/http"
 	"os"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/api/paths/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
 var url = os.Getenv("API_URL")
 
+// RegisterEscort adds the current escort to the haven via an API call
 func RegisterEscort(escort *types.Escort) error {
 	if url == "" {
-		return fmt.Errorf("API_URL not set")
+		logger.HavenLogger.Fatal().Msg("API_URL is not set")
 	}
 
-	regBody := flagship.BuildBody(escort)
+	harbor.Haven.IsServer = false
+
+	regBody := register.BuildBody(escort)
 	body, err := regBody.ToJson()
 	if err != nil {
 		return err
 	}
-	encryptedBody, err := Encrypt(body)
+	encryptedBody, err := api.Encrypt(body)
 
 	request, err := http.NewRequest("GET", url+"/flagship/register", bytes.NewBufferString(encryptedBody))
 	if err != nil {
@@ -46,27 +50,24 @@ func RegisterEscort(escort *types.Escort) error {
 		return err
 	}
 
-	bodyJson, err := Decrypt(string(responseBody))
+	bodyJson, err := api.Decrypt(string(responseBody))
 	if err != nil {
 		return err
 	}
 
-	var decodedBody flagship.RegisterResponse
+	var decodedBody register.RegisterResponse
 	if err := json.Unmarshal([]byte(bodyJson), &decodedBody); err != nil {
 		return err
 	}
 
 	harbor.Haven.Flagship = &types.Flagship{
-		Ship: &types.Escort{
+		Escort: types.Escort{
 			IpAddress:      net.ParseIP(decodedBody.IpAddress),
 			RtspEgressPort: 0,
 			Latitude:       0,
 			Longitude:      0,
-			Username:       "",
-			Passphrase:     "",
 		},
 		SrtIngestPort: decodedBody.Port,
-		Application:   decodedBody.Application,
 		Passphrase:    decodedBody.StreamKey,
 	}
 	harbor.Haven.IsServer = false

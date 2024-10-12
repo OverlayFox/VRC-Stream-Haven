@@ -4,6 +4,5 @@ package types
 type Flagship struct {
 	Escort
 	SrtIngestPort uint16 `yaml:"srtIngestPort"`
-	Application   string `yaml:"application"`
 	Passphrase    string `yaml:"passphrase"`
 }

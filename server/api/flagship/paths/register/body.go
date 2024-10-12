@@ -1,11 +1,7 @@
-package flagship
+package register
 
 import (
 	"encoding/json"
-	"math/rand"
-	"os"
-	"strconv"
-
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
@@ -14,7 +10,6 @@ type RegisterBody struct {
 	RtspEgressPort uint16  `yaml:"rtspEgressPort"`
 	Latitude       float64 `yaml:"lat"`
 	Longitude      float64 `yaml:"lon"`
-	Username       string  `yaml:"username"`
 }
 
 func (r *RegisterBody) ToJson() (string, error) {
@@ -26,18 +21,10 @@ func (r *RegisterBody) ToJson() (string, error) {
 }
 
 func BuildBody(escort *types.Escort) RegisterBody {
-	var hostname string
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "unkown-hostname-" + strconv.Itoa(rand.Intn(1001))
-	}
-
 	return RegisterBody{
 		IpAddress:      escort.IpAddress.String(),
 		RtspEgressPort: escort.RtspEgressPort,
 		Latitude:       escort.Latitude,
 		Longitude:      escort.Longitude,
-		Username:       hostname,
 	}
 }
