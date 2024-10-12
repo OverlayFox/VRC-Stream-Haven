@@ -6,9 +6,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"io"
 	"os"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 )
 
 var Key = []byte(os.Getenv("API_PASSPHRASE"))

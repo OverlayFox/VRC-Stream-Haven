@@ -1,13 +1,14 @@
 package main
 
 import (
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
-	"net/http"
-	"os"
-	"strings"
 )
 
 func startFlagship() (chan error, error) {

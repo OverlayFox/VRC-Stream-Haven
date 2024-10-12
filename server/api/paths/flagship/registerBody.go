@@ -2,10 +2,11 @@ package flagship
 
 import (
 	"encoding/json"
-	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"math/rand"
 	"os"
 	"strconv"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
 type RegisterBody struct {

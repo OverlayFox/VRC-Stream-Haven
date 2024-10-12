@@ -1,10 +1,11 @@
 package api
 
 import (
-	"github.com/dgrijalva/jwt-go"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/mux"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/api/paths/flagship"
 )

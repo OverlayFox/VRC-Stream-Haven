@@ -2,13 +2,14 @@ package flagship
 
 import (
 	"encoding/json"
+	"io"
+	"net"
+	"net/http"
+
 	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
-	"io"
-	"net"
-	"net/http"
 )
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {

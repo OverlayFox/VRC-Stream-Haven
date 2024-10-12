@@ -2,11 +2,12 @@ package harbor
 
 import (
 	"encoding/json"
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
-	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"math/rand"
 	"net/http"
 	"time"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

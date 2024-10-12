@@ -1,11 +1,12 @@
 package geoLocator
 
 import (
-	geo "github.com/kellydunn/golang-geo"
-	"github.com/oschwald/geoip2-golang"
 	"log"
 	"net"
 	"strings"
+
+	geo "github.com/kellydunn/golang-geo"
+	"github.com/oschwald/geoip2-golang"
 )
 
 var GeoDatabase *geoip2.Reader

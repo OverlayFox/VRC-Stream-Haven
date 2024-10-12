@@ -1,8 +1,9 @@
 package harbor
 
 import (
-	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"net"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
 var Haven *types.Haven

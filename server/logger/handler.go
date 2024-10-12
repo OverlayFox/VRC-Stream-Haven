@@ -1,12 +1,13 @@
 package logger
 
 import (
-	"github.com/rs/zerolog"
 	"io"
 	"log"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/rs/zerolog"
 )
 
 var HavenLogger zerolog.Logger

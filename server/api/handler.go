@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/paths/flagship"
-	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
-	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
 	"net"
 	"net/http"
 	"os"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/api/paths/flagship"
+	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
 var url = os.Getenv("API_URL")
