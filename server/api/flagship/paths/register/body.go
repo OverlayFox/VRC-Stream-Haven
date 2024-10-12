@@ -20,6 +20,12 @@ func (r *RegisterBody) ToJson() (string, error) {
 	return string(jsonData), nil
 }
 
+func FromJson(data string) (RegisterBody, error) {
+	var body RegisterBody
+	err := json.Unmarshal([]byte(data), &body)
+	return body, err
+}
+
 func BuildBody(escort *types.Escort) RegisterBody {
 	return RegisterBody{
 		IpAddress:      escort.IpAddress.String(),
