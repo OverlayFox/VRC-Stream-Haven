@@ -3,22 +3,16 @@ package rtsp
 import (
 	rtspServer "github.com/OverlayFox/VRC-Stream-Haven/streaming/rtsp/types"
 	"github.com/bluenviron/gortsplib/v4"
-	"os"
 	"strconv"
 	"time"
 )
 
 var ServerHandler *rtspServer.RtspHandler
 
-func init() {
-	rtspPortInt, err := strconv.Atoi(os.Getenv("RTSP_PORT"))
-	if err != nil || rtspPortInt <= 0 || rtspPortInt > 65535 {
-		rtspPortInt = 554
-	}
+func InitRtspServer(rtspPortInt int) *rtspServer.RtspHandler {
 	rtspPort := ":" + strconv.Itoa(rtspPortInt)
 
-	ServerHandler = &rtspServer.RtspHandler{}
-
+	ServerHandler := &rtspServer.RtspHandler{}
 	ServerHandler.Server = &gortsplib.Server{
 		RTSPAddress:              rtspPort,
 		ReadTimeout:              10 * time.Second,
@@ -28,4 +22,6 @@ func init() {
 		DisableRTCPSenderReports: false,
 		Handler:                  ServerHandler,
 	}
+
+	return ServerHandler
 }

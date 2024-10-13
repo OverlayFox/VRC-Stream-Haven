@@ -3,25 +3,19 @@ package escort
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"github.com/OverlayFox/VRC-Stream-Haven/api/server/flagship/paths/register"
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
 	"net"
 	"net/http"
-	"os"
-
-	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
-	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
-var url = os.Getenv("API_URL")
-
 // RegisterEscortWithHaven adds the current escort to the haven via an API call
-func RegisterEscortWithHaven(escort *types.Escort) error {
-	if url == "" {
-		logger.HavenLogger.Fatal().Msg("API_URL is not set")
-	}
+func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP) error {
+	url := fmt.Sprintf("http://%s:%d", flagshipIp.String(), harbor.Haven.Flagship.ApiPort)
 
 	harbor.Haven.IsServer = false
 

@@ -47,12 +47,21 @@ RUN set -eux; \
 # set default envs
 ENV USER=$USERNAME
 ENV MEDIA_MTX_CONFIG_PATH="/etc/haven/mediamtx.yml"
-ENV API_URL="http://localhost:8080"
-ENV IS_NODE="False"
+
+#
+# mandatory envs, leave FLAGSHIP_IP as "" when running as flagship
 ENV PASSPHRASE="helloworldhowareyou"
-ENV MAX_VIEWERS=0
 ENV RTSP_PORT=554
+ENV API_PORT=8080
+ENV FLAGSHIP_IP=""
+
+#
+# mandatory envs only used when server is running as the flagship
 ENV SRT_PORT=8554
+
+#
+# mandatory envs only used when server is running as the escort
+ENV MAX_VIEWERS=0
 
 #
 # copy files

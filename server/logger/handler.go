@@ -12,11 +12,7 @@ import (
 
 var HavenLogger zerolog.Logger
 
-func init() {
-	initLogger()
-}
-
-func initLogger() {
+func InitLogger() {
 	logFile, err := os.OpenFile("hermes.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Println("Failed to open log file")

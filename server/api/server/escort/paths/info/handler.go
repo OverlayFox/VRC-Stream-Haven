@@ -18,11 +18,12 @@ func GetInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maxViewersStr := os.Getenv("MAX_VIEWERS")
-	maxViewers, err := strconv.Atoi(maxViewersStr)
-	if err != nil || maxViewers < 0 {
-		logger.HavenLogger.Warn().Msgf("Could not parse MAX_VIEWERS: %s", maxViewersStr)
-		maxViewers = 0
+	var maxViewers int
+	if os.Getenv("MAX_VIEWERS") != "" && os.Getenv("MAX_VIEWERS") != "0" {
+		maxViewers, err = strconv.Atoi(os.Getenv("MAX_VIEWERS"))
+		if err != nil {
+			maxViewers = 0
+		}
 	}
 
 	response := Response{

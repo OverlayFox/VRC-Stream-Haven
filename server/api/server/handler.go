@@ -1,15 +1,13 @@
 package server
 
 import (
+	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"github.com/OverlayFox/VRC-Stream-Haven/api/server/escort/paths/info"
 	"github.com/OverlayFox/VRC-Stream-Haven/api/server/flagship/paths/register"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"net/http"
-	"os"
 )
-
-var Passphrase = []byte(os.Getenv("PASSPHRASE"))
 
 // jwtMiddleware checks for a valid JWT token in the Authorization header
 func jwtMiddleware(next http.Handler) http.Handler {
@@ -22,7 +20,7 @@ func jwtMiddleware(next http.Handler) http.Handler {
 
 		tokenString = tokenString[len("Bearer "):]
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return Passphrase, nil
+			return api.Key, nil
 		})
 
 		if err != nil || !token.Valid {

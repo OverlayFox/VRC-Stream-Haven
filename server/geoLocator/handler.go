@@ -1,7 +1,6 @@
 package geoLocator
 
 import (
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"net"
 	"strings"
 
@@ -9,14 +8,6 @@ import (
 )
 
 var GeoDatabase *geoip2.Reader
-
-func init() {
-	var err error
-	GeoDatabase, err = geoip2.Open("./geoDatabase/GeoLite2-City.mmdb")
-	if err != nil {
-		logger.HavenLogger.Fatal().Err(err).Msg("Failed to load GeoLite2-City Database")
-	}
-}
 
 // LocateIp takes in an ipAddress, with or without port number, and converts it to the Latitude and Longitude.
 // It may return an 0,0 if no country was found for the specified IP Address.
