@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/OverlayFox/VRC-Stream-Haven/api"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/flagship/paths/register"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/server/flagship/paths/register"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"io"
 	"net"
@@ -25,11 +25,11 @@ func RegisterEscortWithHaven(escort *types.Escort) error {
 
 	harbor.Haven.IsServer = false
 
-	body, err := escort.ToJson()
+	jsonData, err := json.Marshal(escort)
 	if err != nil {
 		return err
 	}
-	encryptedBody, err := api.Encrypt(body)
+	encryptedBody, err := api.Encrypt(string(jsonData))
 
 	request, err := http.NewRequest("GET", url+"/flagship/register", bytes.NewBufferString(encryptedBody))
 	if err != nil {

@@ -3,7 +3,6 @@ package register
 import "encoding/json"
 
 type Response struct {
-	Success   bool   `json:"success"`
 	IpAddress string `json:"ipAddress"`
 	SrtPort   uint16 `json:"port"`
 }

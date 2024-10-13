@@ -2,10 +2,10 @@ package register
 
 import (
 	"encoding/json"
+	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"io"
 	"net/http"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
@@ -39,12 +39,8 @@ func PostRegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 	harbor.Haven.AddEscort(&escort)
 
 	response := Response{
-		Success:     true,
-		IpAddress:   harbor.Haven.Flagship.Ship.IpAddress.String(),
-		Port:        harbor.Haven.Flagship.SrtIngestPort,
-		Protocol:    "SRT",
-		Application: harbor.Haven.Flagship.Application,
-		StreamKey:   harbor.Haven.Flagship.Passphrase,
+		IpAddress: harbor.Haven.Flagship.IpAddress.String(),
+		SrtPort:   harbor.Haven.Flagship.SrtIngestPort,
 	}
 
 	responseJson, err := response.ToJson()

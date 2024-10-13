@@ -3,7 +3,7 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	flagshipApi "github.com/OverlayFox/VRC-Stream-Haven/api/flagship"
+	flagshipApi "github.com/OverlayFox/VRC-Stream-Haven/api/service/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/go-ping/ping"
 	geo "github.com/kellydunn/golang-geo"
@@ -20,12 +20,36 @@ type Escort struct {
 	Longitude      float64 `yaml:"lon"`
 }
 
-func (e *Escort) ToJson() (string, error) {
-	jsonData, err := json.Marshal(e)
-	if err != nil {
-		return "", err
+func (e *Escort) MarshalJSON() ([]byte, error) {
+	type Alias Escort
+	return json.Marshal(&struct {
+		IpAddress string `json:"publicIpAddress"`
+		*Alias
+	}{
+		IpAddress: e.IpAddress.String(),
+		Alias:     (*Alias)(e),
+	})
+}
+
+func (e *Escort) UnmarshalJSON(data []byte) error {
+	type Alias Escort
+	aux := &struct {
+		IpAddress string `json:"publicIpAddress"`
+		*Alias
+	}{
+		Alias: (*Alias)(e),
 	}
-	return string(jsonData), nil
+
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+
+	e.IpAddress = net.ParseIP(aux.IpAddress)
+	if e.IpAddress == nil {
+		return fmt.Errorf("invalid IP address: %s", aux.IpAddress)
+	}
+
+	return nil
 }
 
 func (e *Escort) getGeoPoint() *geo.Point {

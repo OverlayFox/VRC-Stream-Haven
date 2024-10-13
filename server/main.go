@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/OverlayFox/VRC-Stream-Haven/api/escort"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/server"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/service/escort"
 	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest"
 	"github.com/OverlayFox/VRC-Stream-Haven/streaming/rtsp"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 )
@@ -23,7 +23,7 @@ func startFlagship() (chan error, error) {
 	}
 
 	go func() {
-		router := api.InitFlagshipApi()
+		router := server.InitFlagshipApi()
 
 		logger.HavenLogger.Info().Msg("Starting Flagship-API server on :8080")
 		err := http.ListenAndServe(":8080", router)
@@ -53,7 +53,7 @@ func startEscort() (chan error, error) {
 	errChan := make(chan error)
 
 	go func() {
-		router := api.InitEscortApi()
+		router := server.InitEscortApi()
 
 		logger.HavenLogger.Info().Msg("Starting Escort-API server on :8080")
 		err := http.ListenAndServe(":8080", router)

@@ -1,8 +1,8 @@
-package api
+package server
 
 import (
-	"github.com/OverlayFox/VRC-Stream-Haven/api/escort/paths/info"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/flagship/paths/register"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/server/escort/paths/info"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/server/flagship/paths/register"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"net/http"

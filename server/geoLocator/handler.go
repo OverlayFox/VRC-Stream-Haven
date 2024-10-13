@@ -11,7 +11,8 @@ import (
 var GeoDatabase *geoip2.Reader
 
 func init() {
-	GeoDatabase, err := geoip2.Open("./geoDatabase/GeoLite2-City.mmdb")
+	var err error
+	GeoDatabase, err = geoip2.Open("./geoDatabase/GeoLite2-City.mmdb")
 	if err != nil {
 		logger.HavenLogger.Fatal().Err(err).Msg("Failed to load GeoLite2-City Database")
 	}

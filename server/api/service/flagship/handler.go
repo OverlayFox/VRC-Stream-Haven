@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/api"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/escort/paths/info"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/server/escort/paths/info"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
 	"net/http"
 )
 
 func GetEscortReaders(escort *types.Escort) (info.Response, error) {
-	url := fmt.Sprintf("http://%s:%s/escort/info", escort.IpAddress, escort.ApiPort)
+	url := fmt.Sprintf("http://%s:%d/escort/info", escort.IpAddress, escort.ApiPort)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return info.Response{}, err
