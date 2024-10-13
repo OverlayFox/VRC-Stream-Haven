@@ -1,6 +1,6 @@
 FROM golang:1.22.5 AS builder
 
-RUN apt-get update && \
+RUN apt-get update
 
 WORKDIR /server
 
@@ -25,8 +25,10 @@ ARG USER_GID=$USER_UID
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends \
-        wget supervisor ffmpeg \
+    apt-get install -y --no-install-recommends wget; \
+    apt-get install -y --no-install-recommends supervisor; \
+    apt-get install -y --no-install-recommends ffmpeg; \
+    apt-get install -y --no-install-recommends curl; \
     #
     # install curl
     apt-get install -y curl; \
