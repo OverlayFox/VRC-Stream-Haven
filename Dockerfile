@@ -51,6 +51,8 @@ ENV API_URL="http://localhost:8080"
 ENV IS_NODE="False"
 ENV PASSPHRASE="helloworldhowareyou"
 ENV MAX_VIEWERS=0
+ENV RTSP_PORT=554
+ENV SRT_PORT=8554
 
 #
 # copy files

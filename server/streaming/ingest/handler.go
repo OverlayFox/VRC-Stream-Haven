@@ -51,7 +51,7 @@ func isMediaMtxRunning() (bool, error) {
 }
 
 // InitIngest initializes mediaMTX
-func InitIngest(isNode bool) error {
+func InitIngest(isServer bool) error {
 	running, err := isMediaMtxRunning()
 	if err != nil {
 		return fmt.Errorf("could not get status of mediaMtx: %s", err)
@@ -66,10 +66,10 @@ func InitIngest(isNode bool) error {
 
 	var config types.MediaMtxConfig
 	var paths types.Paths
-	if isNode {
-		paths = config.BuildEscortPath(harbor.Haven.Flagship)
-	} else {
+	if isServer {
 		paths = config.BuildFlagshipPath(harbor.Haven.Flagship.Passphrase)
+	} else {
+		paths = config.BuildEscortPath(harbor.Haven.Flagship)
 	}
 
 	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths)

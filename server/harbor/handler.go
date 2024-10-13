@@ -1,8 +1,10 @@
 package harbor
 
 import (
+	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"net"
 	"os"
+	"strconv"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
@@ -11,7 +13,19 @@ var Haven *types.Haven
 
 // InitHaven is used to start up the Haven with no Escorts and one Flagship.
 // The Flagship is the local server that initialised the Haven.
-func InitHaven(srtIngestPort, rtspEgressPort uint16) error {
+func InitHaven() error {
+	var rtspPort int
+	rtspPort, err := strconv.Atoi(os.Getenv("RTSP_PORT"))
+	if err != nil || rtspPort <= 0 || rtspPort > 65535 {
+		rtspPort = 554
+	}
+
+	var srtPort int
+	srtPort, err = strconv.Atoi(os.Getenv("SRT_PORT"))
+	if err != nil || srtPort <= 0 || srtPort > 65535 {
+		rtspPort = 8554
+	}
+
 	ip, err := GetPublicIpAddress()
 	if err != nil {
 		return err
@@ -20,12 +34,12 @@ func InitHaven(srtIngestPort, rtspEgressPort uint16) error {
 	Haven.Flagship = &types.Flagship{
 		Escort: types.Escort{
 			IpAddress:      net.ParseIP(ip.IpAddress),
-			RtspEgressPort: rtspEgressPort,
+			RtspEgressPort: uint16(rtspPort),
 			Latitude:       ip.Latitude,
 			Longitude:      ip.Longitude,
 		},
-		SrtIngestPort: srtIngestPort,
-		Passphrase:    os.Getenv("PASSPHRASE"),
+		SrtIngestPort: uint16(srtPort),
+		Passphrase:    string(api.Key),
 	}
 
 	var escorts []*types.Escort

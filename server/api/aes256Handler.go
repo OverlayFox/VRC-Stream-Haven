@@ -6,18 +6,21 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"io"
 	"os"
-
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 )
 
-var Key = []byte(os.Getenv("PASSPHRASE"))
+var Key []byte
 
 func init() {
-	if len(Key) < 10 {
+	evaluationKey := os.Getenv("PASSPHRASE")
+
+	if len(evaluationKey) < 10 {
 		logger.HavenLogger.Fatal().Msg("PASSPHRASE not set or shorter than 10 characters.")
 	}
+
+	Key = []byte(evaluationKey)
 }
 
 // Encrypt encrypts a plaintext with a passphrase and return a base64 encoded string

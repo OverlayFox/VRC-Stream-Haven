@@ -15,9 +15,9 @@ import (
 
 func startFlagship() (chan error, error) {
 	logger.HavenLogger.Info().Msg("Starting as Flagship")
-
 	errChan := make(chan error)
-	err := harbor.InitHaven(8890, 554)
+
+	err := harbor.InitHaven()
 	if err != nil {
 		logger.HavenLogger.Fatal().Err(err).Msg("Failed to initialize Haven")
 	}
@@ -39,7 +39,7 @@ func startFlagship() (chan error, error) {
 		}
 	}()
 
-	err = ingest.InitIngest(false)
+	err = ingest.InitIngest(true)
 	if err != nil {
 		return nil, err
 	}
