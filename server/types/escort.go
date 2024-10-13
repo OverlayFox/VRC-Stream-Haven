@@ -1,12 +1,13 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
+	flagshipApi "github.com/OverlayFox/VRC-Stream-Haven/api/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/go-ping/ping"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/oschwald/geoip2-golang"
-	"github.com/rs/zerolog"
 	"net"
 )
 
@@ -14,10 +15,17 @@ import (
 type Escort struct {
 	IpAddress      net.IP  `yaml:"publicIpAddress"`
 	RtspEgressPort uint16  `yaml:"rtspEgressPort"`
+	ApiPort        uint16  `yaml:"apiPort"`
 	Latitude       float64 `yaml:"lat"`
 	Longitude      float64 `yaml:"lon"`
+}
 
-	Logger *zerolog.Logger
+func (e *Escort) ToJson() (string, error) {
+	jsonData, err := json.Marshal(e)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonData), nil
 }
 
 func (e *Escort) getGeoPoint() *geo.Point {
@@ -35,13 +43,12 @@ func (e *Escort) GetDistance(city *geoip2.City) (float64, error) {
 	return clientLocation.GreatCircleDistance(e.getGeoPoint()), nil
 }
 
-func (e *Escort) checkAvailability() bool {
+func (e *Escort) CheckAvailability() bool {
 	pinger, err := ping.NewPinger(e.IpAddress.String())
 	if err != nil {
 		logger.HavenLogger.Warn().Msgf("Failed to create pinger for %s", e.IpAddress.String())
 		return false
 	}
-
 	pinger.Count = 2
 	pinger.Timeout = 500
 
@@ -57,4 +64,28 @@ func (e *Escort) checkAvailability() bool {
 		return false
 	}
 
+	readers, err := flagshipApi.GetEscortReaders(e)
+	if err != nil {
+		return false
+	}
+
+	if readers.CurrentViewers >= readers.MaxAllowedViewers {
+		logger.HavenLogger.Info().Msgf("Escort %s is full", e.IpAddress.String())
+		return false
+	}
+
+	return true
+}
+
+func (e *Escort) MaxReadersReached() bool {
+	readers, err := flagshipApi.GetEscortReaders(e)
+	if err != nil {
+		return false
+	}
+
+	if readers.CurrentViewers >= readers.MaxAllowedViewers {
+		return false
+	}
+
+	return true
 }

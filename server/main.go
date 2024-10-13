@@ -1,7 +1,9 @@
 package main
 
 import (
+	"github.com/OverlayFox/VRC-Stream-Haven/api/escort"
 	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest"
+	"github.com/OverlayFox/VRC-Stream-Haven/streaming/rtsp"
 	"net/http"
 	"os"
 	"strings"
@@ -30,6 +32,18 @@ func startFlagship() (chan error, error) {
 		}
 	}()
 
+	go func() {
+		err = rtsp.ServerHandler.Server.Start()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+
+	err = ingest.InitIngest(false)
+	if err != nil {
+		return nil, err
+	}
+
 	return errChan, nil
 }
 
@@ -48,18 +62,21 @@ func startEscort() (chan error, error) {
 		}
 	}()
 
-	escort, err := harbor.MakeEscort(554)
+	node, err := harbor.MakeEscort(554)
 	if err != nil {
 		return nil, err
 	}
 
-	err = escort.RegisterEscort(escort)
+	err = escort.RegisterEscortWithHaven(node)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
-		// @ToDo: Implement start of RTSP Server
+		err = rtsp.ServerHandler.Server.Start()
+		if err != nil {
+			errChan <- err
+		}
 	}()
 
 	err = ingest.InitIngest(true)
@@ -81,12 +98,12 @@ func main() {
 	if strings.ToUpper(os.Getenv("IS_NODE")) == "FALSE" {
 		errChan, err = startFlagship()
 		if err != nil {
-			return
+			logger.HavenLogger.Fatal().Err(err).Msg("A fatal server error occurred")
 		}
 	} else {
 		errChan, err = startEscort()
 		if err != nil {
-			return
+			logger.HavenLogger.Fatal().Err(err).Msg("A fatal server error occurred")
 		}
 	}
 
@@ -94,48 +111,4 @@ func main() {
 	case err := <-errChan:
 		logger.HavenLogger.Fatal().Err(err).Msg("A fatal server error occurred")
 	}
-
-	//isFlagship := getShipState()
-	//
-	//if isFlagship {
-	//	asFlagship()
-	//} else {
-	//	asEscort()
-	//}
-
-	//lib.Scanner = bufio.NewScanner(os.Stdin)
-	//if lib.IsServer() {
-	//	if lib.IsIngestTypeSrt() {
-	//		ingestSrtServer := servers.SetupIngestSrt(lib.GetSrtIngestPort())
-	//	} else {
-	//		ingestRtmpServer := servers.SetupIngestRtmp(lib.GetRtmpIngestPort())
-	//	}
-	//
-	//	Config.Server.RtspEgressPort = lib.GetRtspEgressPort(true)
-	//	Config.Server.IpAddress = lib.GetPublicIpAddress()
-	//	Config.Nodes = append(Config.Nodes, lib.GetNodes()...)
-	//	Config.Server.Passphrase = lib.GenerateKey()
-	//	backendSrtServer := servers.SetupBackendSrt(Config.Server.Passphrase)
-	//
-	//} else {
-	//
-	//}
-
-	//servers.StartUpIngestSRT()
-
-	//lib.GeoDatabase = lib.LoadDatabase()
-	//lib.InitialiseConfig()
-
-	//rtspHandler := &servers.RtspServerHandler{}
-	//rtspHandler.Server = &gortsplib.Server{
-	//	Handler:     rtspHandler,
-	//	RTSPAddress: lib.Config.Server.RtspStreamingPortString(),
-	//}
-	//go rtspHandler.Server.StartAndWait()
-	//
-	//if os.Getenv("IS_NODE") == "False" {
-	//	go servers.StartRtmpServer()
-	//}
-	//
-	//select {}
 }

@@ -2,7 +2,6 @@ package register
 
 import (
 	"encoding/json"
-	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
 type RegisterBody struct {
@@ -18,19 +17,4 @@ func (r *RegisterBody) ToJson() (string, error) {
 		return "", err
 	}
 	return string(jsonData), nil
-}
-
-func FromJson(data string) (RegisterBody, error) {
-	var body RegisterBody
-	err := json.Unmarshal([]byte(data), &body)
-	return body, err
-}
-
-func BuildBody(escort *types.Escort) RegisterBody {
-	return RegisterBody{
-		IpAddress:      escort.IpAddress.String(),
-		RtspEgressPort: escort.RtspEgressPort,
-		Latitude:       escort.Latitude,
-		Longitude:      escort.Longitude,
-	}
 }

@@ -3,7 +3,6 @@ package register
 import (
 	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/api"
@@ -12,8 +11,8 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
-// AddEscortToHaven adds the caller as an escort to the haven
-func AddEscortToHaven(w http.ResponseWriter, r *http.Request) {
+// PostRegisterEscortToHaven adds the caller as an escort to the haven
+func PostRegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -26,26 +25,20 @@ func AddEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body RegisterBody
-	if err := json.Unmarshal([]byte(bodyJson), &body); err != nil {
+	var escort types.Escort
+	if err := json.Unmarshal([]byte(bodyJson), &escort); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	err = harbor.Haven.RemoveEscort(body.Username)
+	err = harbor.Haven.RemoveEscort(escort.IpAddress)
 	if err == nil {
-		logger.HavenLogger.Warn().Msgf("Escort %s already exists, removing it", body.Username)
+		logger.HavenLogger.Warn().Msgf("Escort %s already exists, removing it", escort.IpAddress)
 	}
 
-	harbor.Haven.AddEscort(&types.Escort{
-		IpAddress:      net.ParseIP(body.IpAddress),
-		RtspEgressPort: body.RtspEgressPort,
-		Latitude:       body.Latitude,
-		Longitude:      body.Longitude,
-		Username:       body.Username,
-	})
+	harbor.Haven.AddEscort(&escort)
 
-	response := RegisterResponse{
+	response := Response{
 		Success:     true,
 		IpAddress:   harbor.Haven.Flagship.Ship.IpAddress.String(),
 		Port:        harbor.Haven.Flagship.SrtIngestPort,
@@ -60,13 +53,13 @@ func AddEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	encrypt, err := api.Encrypt(responseJson)
 	if err != nil {
 		http.Error(w, "Failed to encrypt response", http.StatusInternalServerError)
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
 	_, err = w.Write([]byte(encrypt))
 	if err != nil {
 		http.Error(w, "Failed to write response", http.StatusInternalServerError)

@@ -47,9 +47,10 @@ RUN set -eux; \
 # set default envs
 ENV USER=$USERNAME
 ENV MEDIA_MTX_CONFIG_PATH="/etc/haven/mediamtx.yml"
+ENV API_URL="http://localhost:8080"
 ENV IS_NODE="False"
 ENV PASSPHRASE="helloworldhowareyou"
-ENV API_URL="http://localhost:8080"
+ENV MAX_VIEWERS=0
 
 #
 # copy files

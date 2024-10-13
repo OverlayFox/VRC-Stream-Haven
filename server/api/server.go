@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/OverlayFox/VRC-Stream-Haven/api/escort/paths/info"
 	"github.com/OverlayFox/VRC-Stream-Haven/api/flagship/paths/register"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
@@ -36,7 +37,7 @@ func jwtMiddleware(next http.Handler) http.Handler {
 // InitFlagshipApi initializes the mux router and sets up the routes for a Flagship Endpoint.
 func InitFlagshipApi() *mux.Router {
 	r := mux.NewRouter()
-	r.Handle("/flagship/register", jwtMiddleware(http.HandlerFunc(register.AddEscortToHaven))).Methods("POST")
+	r.Handle("/flagship/register", jwtMiddleware(http.HandlerFunc(register.PostRegisterEscortToHaven))).Methods("POST")
 
 	return r
 }
@@ -44,7 +45,7 @@ func InitFlagshipApi() *mux.Router {
 // InitEscortApi initializes the mux router and sets up the routes for a Escort Endpoint.
 func InitEscortApi() *mux.Router {
 	r := mux.NewRouter()
-	r.Handle("/escort/info", jwtMiddleware(http.HandlerFunc(register.AddEscortToHaven))).Methods("GET")
+	r.Handle("/escort/info", jwtMiddleware(http.HandlerFunc(info.GetInfo))).Methods("GET")
 
 	return r
 }

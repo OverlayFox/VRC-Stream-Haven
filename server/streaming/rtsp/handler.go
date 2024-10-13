@@ -1,1 +1,23 @@
 package rtsp
+
+import (
+	rtspServer "github.com/OverlayFox/VRC-Stream-Haven/streaming/rtsp/types"
+	"github.com/bluenviron/gortsplib/v4"
+	"time"
+)
+
+var ServerHandler *rtspServer.RtspHandler
+
+func init() {
+	ServerHandler = &rtspServer.RtspHandler{}
+
+	ServerHandler.Server = &gortsplib.Server{
+		RTSPAddress:              ":554",
+		ReadTimeout:              10 * time.Second,
+		WriteTimeout:             10 * time.Second,
+		WriteQueueSize:           512,
+		MaxPacketSize:            1472,
+		DisableRTCPSenderReports: false,
+		Handler:                  ServerHandler,
+	}
+}

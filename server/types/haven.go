@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/oschwald/geoip2-golang"
 	"net"
+	"sort"
 )
 
 // Haven combines the ServerStruct and NodeStruct information.
@@ -13,33 +14,43 @@ type Haven struct {
 	IsServer bool       `yaml:"isServer"`
 }
 
-// GetClosestEscort returns the closest escort to a client.
+// GetClosestEscort returns a sorted list. The first element is the closest escort to the client.
 // The city should be extracted from the IP request made by a client wanting to watch the stream.
-func (h *Haven) GetClosestEscort(city *geoip2.City) *Escort {
-	type ClosestEscort struct {
+func (h *Haven) GetClosestEscort(city *geoip2.City) []*Escort {
+	type EscortWithDistance struct {
 		Escort   *Escort
 		Distance float64
 	}
 
-	var closestEscort ClosestEscort
+	var escortsWithDistances []EscortWithDistance
 	for _, escort := range *h.Escorts {
 		distance, err := escort.GetDistance(city)
 		if err != nil {
-			return &Escort{
+			flagship := &Escort{
 				IpAddress:      h.Flagship.IpAddress,
 				RtspEgressPort: h.Flagship.RtspEgressPort,
 				Latitude:       h.Flagship.Latitude,
 				Longitude:      h.Flagship.Longitude,
 			}
+			return []*Escort{flagship}
 		}
 
-		if closestEscort.Escort == nil || distance < closestEscort.Distance {
-			closestEscort.Escort = escort
-			closestEscort.Distance = distance
-		}
+		escortsWithDistances = append(escortsWithDistances, EscortWithDistance{
+			Escort:   escort,
+			Distance: distance,
+		})
 	}
 
-	return closestEscort.Escort
+	sort.Slice(escortsWithDistances, func(i, j int) bool {
+		return escortsWithDistances[i].Distance < escortsWithDistances[j].Distance
+	})
+
+	var sortedEscorts []*Escort
+	for _, escortWithDistance := range escortsWithDistances {
+		sortedEscorts = append(sortedEscorts, escortWithDistance.Escort)
+	}
+
+	return sortedEscorts
 }
 
 func (h *Haven) GetEscort(ip net.IP) (*Escort, error) {

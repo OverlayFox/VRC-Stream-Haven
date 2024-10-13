@@ -17,16 +17,15 @@ import (
 
 var url = os.Getenv("API_URL")
 
-// RegisterEscort adds the current escort to the haven via an API call
-func RegisterEscort(escort *types.Escort) error {
+// RegisterEscortWithHaven adds the current escort to the haven via an API call
+func RegisterEscortWithHaven(escort *types.Escort) error {
 	if url == "" {
 		logger.HavenLogger.Fatal().Msg("API_URL is not set")
 	}
 
 	harbor.Haven.IsServer = false
 
-	regBody := register.BuildBody(escort)
-	body, err := regBody.ToJson()
+	body, err := escort.ToJson()
 	if err != nil {
 		return err
 	}
@@ -55,7 +54,7 @@ func RegisterEscort(escort *types.Escort) error {
 		return err
 	}
 
-	var decodedBody register.RegisterResponse
+	var decodedBody register.Response
 	if err := json.Unmarshal([]byte(bodyJson), &decodedBody); err != nil {
 		return err
 	}
@@ -67,8 +66,7 @@ func RegisterEscort(escort *types.Escort) error {
 			Latitude:       0,
 			Longitude:      0,
 		},
-		SrtIngestPort: decodedBody.Port,
-		Passphrase:    decodedBody.StreamKey,
+		SrtIngestPort: decodedBody.SrtPort,
 	}
 	harbor.Haven.IsServer = false
 

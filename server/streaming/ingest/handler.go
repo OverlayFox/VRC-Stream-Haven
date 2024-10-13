@@ -67,8 +67,7 @@ func InitIngest(isNode bool) error {
 	var config types.MediaMtxConfig
 	var paths types.Paths
 	if isNode {
-		pullUrl := fmt.Sprintf("srt://%s:%d/egress/flagship?passphrase=%s", harbor.Haven.Flagship.Ship.IpAddress.String(), harbor.Haven.Flagship.SrtIngestPort, harbor.Haven.Flagship.Passphrase)
-		paths = config.BuildEscortPath(pullUrl, harbor.Haven.Flagship.Passphrase)
+		paths = config.BuildEscortPath(harbor.Haven.Flagship)
 	} else {
 		paths = config.BuildFlagshipPath(harbor.Haven.Flagship.Passphrase)
 	}
