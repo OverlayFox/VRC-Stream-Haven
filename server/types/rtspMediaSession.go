@@ -1,4 +1,4 @@
-package rtspServer
+package types
 
 import (
 	"fmt"

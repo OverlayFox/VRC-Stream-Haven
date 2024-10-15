@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"github.com/OverlayFox/VRC-Stream-Haven/types"
 )
 
 type MediaMtxConfig struct {
@@ -226,7 +225,7 @@ type Path struct {
 	RunOnRecordSegmentComplete string `yaml:"runOnRecordSegmentComplete"`
 }
 
-func (m *MediaMtxConfig) BuildEscortPath(flagship *types.Flagship) Paths {
+func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship) Paths {
 	pullUrl := fmt.Sprintf("srt://%s:%d/egress/flagship?passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
 
 	return Paths{

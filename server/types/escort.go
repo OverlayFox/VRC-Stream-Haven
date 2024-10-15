@@ -3,7 +3,6 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	flagshipApi "github.com/OverlayFox/VRC-Stream-Haven/api/service/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/go-ping/ping"
 	geo "github.com/kellydunn/golang-geo"

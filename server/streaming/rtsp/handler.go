@@ -1,7 +1,7 @@
 package rtsp
 
 import (
-	rtspServer "github.com/OverlayFox/VRC-Stream-Haven/streaming/rtsp/types"
+	rtspServer "github.com/OverlayFox/VRC-Stream-Haven/types"
 	"github.com/bluenviron/gortsplib/v4"
 	"strconv"
 	"time"

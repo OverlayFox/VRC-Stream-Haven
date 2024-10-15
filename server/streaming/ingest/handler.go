@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
-	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest/types"
+	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"gopkg.in/yaml.v3"
 	"os"
 	"os/exec"
