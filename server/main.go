@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/OverlayFox/VRC-Stream-Haven/api"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/server"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/service/escort"
+	"github.com/OverlayFox/VRC-Stream-Haven/apiServer"
+	"github.com/OverlayFox/VRC-Stream-Haven/apiService/escort"
 	"github.com/OverlayFox/VRC-Stream-Haven/geoLocator"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"github.com/OverlayFox/VRC-Stream-Haven/rtspServer/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest"
-	"github.com/OverlayFox/VRC-Stream-Haven/streaming/rtsp"
 	"github.com/gorilla/mux"
 	"github.com/oschwald/geoip2-golang"
 	"net"
@@ -50,7 +49,7 @@ func init() {
 		logger.HavenLogger.Fatal().Err(err).Msg("Failed to open GeoLite2-City.mmdb")
 	}
 
-	api.Key = config.Passphrase
+	apiServer.Key = config.Passphrase
 }
 
 func getEnvPassphrase(key string, minLength int) []byte {
@@ -89,10 +88,10 @@ func main() {
 	// Start the API server
 	var router *mux.Router
 	if config.IsFlagship {
-		router = server.InitFlagshipApi()
+		router = apiServer.InitFlagshipApi()
 		logger.HavenLogger.Info().Msgf("Starting API server as Flagship on %d", config.ApiPort)
 	} else {
-		router = server.InitEscortApi()
+		router = apiServer.InitEscortApi()
 		logger.HavenLogger.Info().Msgf("Starting API server as Escort on %d", config.ApiPort)
 	}
 
@@ -120,9 +119,9 @@ func main() {
 	}
 
 	// Start the RTSP server
-	rtsp.ServerHandler = rtsp.InitRtspServer(config.RtspPort)
+	flagship.ServerHandler = flagship.InitRtspServer(config.RtspPort)
 	go func() {
-		err = rtsp.ServerHandler.Server.Start()
+		err = flagship.ServerHandler.Server.Start()
 		if err != nil {
 			errChan <- err
 		}

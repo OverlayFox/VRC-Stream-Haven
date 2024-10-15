@@ -3,8 +3,8 @@ package flagship
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/OverlayFox/VRC-Stream-Haven/api"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/server/escort/paths/info"
+	"github.com/OverlayFox/VRC-Stream-Haven/apiServer"
+	"github.com/OverlayFox/VRC-Stream-Haven/apiServer/escort/paths/info"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
 	"net/http"
@@ -48,7 +48,7 @@ func GetEscortReaders(escort *types.Escort) (info.Response, error) {
 		return info.Response{}, err
 	}
 
-	bodyJson, err := api.Decrypt(string(responseBody))
+	bodyJson, err := apiServer.Decrypt(string(responseBody))
 	if err != nil {
 		return info.Response{}, err
 	}

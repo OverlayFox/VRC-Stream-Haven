@@ -1,4 +1,4 @@
-package rtsp
+package flagship
 
 import (
 	"github.com/bluenviron/gortsplib/v4"
@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-var ServerHandler *RtspHandler
+var ServerHandler *EscortHandler
 
-func InitRtspServer(rtspPortInt int) *RtspHandler {
+func InitRtspServer(rtspPortInt int) *EscortHandler {
 	rtspPort := ":" + strconv.Itoa(rtspPortInt)
 
-	ServerHandler := &RtspHandler{}
+	ServerHandler := &EscortHandler{}
 	ServerHandler.Server = &gortsplib.Server{
 		RTSPAddress:              rtspPort,
 		ReadTimeout:              10 * time.Second,

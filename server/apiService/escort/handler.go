@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/OverlayFox/VRC-Stream-Haven/api"
-	"github.com/OverlayFox/VRC-Stream-Haven/api/server/flagship/paths/register"
+	"github.com/OverlayFox/VRC-Stream-Haven/apiServer"
+	"github.com/OverlayFox/VRC-Stream-Haven/apiServer/flagship/paths/register"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
@@ -23,7 +23,7 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP) error {
 	if err != nil {
 		return err
 	}
-	encryptedBody, err := api.Encrypt(string(jsonData))
+	encryptedBody, err := apiServer.Encrypt(string(jsonData))
 
 	request, err := http.NewRequest("GET", url+"/flagship/register", bytes.NewBufferString(encryptedBody))
 	if err != nil {
@@ -43,7 +43,7 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP) error {
 		return err
 	}
 
-	bodyJson, err := api.Decrypt(string(responseBody))
+	bodyJson, err := apiServer.Decrypt(string(responseBody))
 	if err != nil {
 		return err
 	}
