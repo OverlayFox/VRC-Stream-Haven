@@ -3,8 +3,6 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
-	"github.com/go-ping/ping"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/oschwald/geoip2-golang"
 	"net"
@@ -64,51 +62,4 @@ func (e *Escort) GetDistance(city *geoip2.City) (float64, error) {
 	clientLocation := geo.NewPoint(city.Location.Latitude, city.Location.Longitude)
 
 	return clientLocation.GreatCircleDistance(e.getGeoPoint()), nil
-}
-
-func (e *Escort) CheckAvailability() bool {
-	pinger, err := ping.NewPinger(e.IpAddress.String())
-	if err != nil {
-		logger.HavenLogger.Warn().Msgf("Failed to create pinger for %s", e.IpAddress.String())
-		return false
-	}
-	pinger.Count = 2
-	pinger.Timeout = 500
-
-	err = pinger.Run()
-	if err != nil {
-		logger.HavenLogger.Warn().Msgf("Failed to ping %s", e.IpAddress.String())
-		return false
-	}
-
-	stats := pinger.Statistics()
-	if stats.PacketLoss != 0 {
-		logger.HavenLogger.Warn().Msgf("Packet loss for %s: %f", e.IpAddress.String(), stats.PacketLoss)
-		return false
-	}
-
-	readers, err := flagshipApi.GetEscortReaders(e)
-	if err != nil {
-		return false
-	}
-
-	if readers.CurrentViewers >= readers.MaxAllowedViewers {
-		logger.HavenLogger.Info().Msgf("Escort %s is full", e.IpAddress.String())
-		return false
-	}
-
-	return true
-}
-
-func (e *Escort) MaxReadersReached() bool {
-	readers, err := flagshipApi.GetEscortReaders(e)
-	if err != nil {
-		return false
-	}
-
-	if readers.CurrentViewers >= readers.MaxAllowedViewers {
-		return false
-	}
-
-	return true
 }

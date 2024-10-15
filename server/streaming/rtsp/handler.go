@@ -1,18 +1,17 @@
 package rtsp
 
 import (
-	rtspServer "github.com/OverlayFox/VRC-Stream-Haven/types"
 	"github.com/bluenviron/gortsplib/v4"
 	"strconv"
 	"time"
 )
 
-var ServerHandler *rtspServer.RtspHandler
+var ServerHandler *RtspHandler
 
-func InitRtspServer(rtspPortInt int) *rtspServer.RtspHandler {
+func InitRtspServer(rtspPortInt int) *RtspHandler {
 	rtspPort := ":" + strconv.Itoa(rtspPortInt)
 
-	ServerHandler := &rtspServer.RtspHandler{}
+	ServerHandler := &RtspHandler{}
 	ServerHandler.Server = &gortsplib.Server{
 		RTSPAddress:              rtspPort,
 		ReadTimeout:              10 * time.Second,

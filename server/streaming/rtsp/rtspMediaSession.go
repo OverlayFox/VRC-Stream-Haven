@@ -1,7 +1,8 @@
-package types
+package rtsp
 
 import (
 	"fmt"
+	"github.com/OverlayFox/VRC-Stream-Haven/api/service/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/geoLocator"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
@@ -96,8 +97,8 @@ func (rh *RtspHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*b
 		}
 
 		for _, escort := range closestEscorts {
-			if !escort.CheckAvailability() {
-				logger.HavenLogger.Warn().Msgf("Escort %s is not available. Removing from Haven", escort.IpAddress.String())
+			if !flagship.IsApiOnline(escort) {
+				logger.HavenLogger.Warn().Msgf("Escort %s is not reachable. Removing from Haven", escort.IpAddress.String())
 				err := harbor.Haven.RemoveEscort(escort.IpAddress)
 				if err != nil {
 					logger.HavenLogger.Warn().Err(err).Msgf("Failed to remove escort %s from Haven", escort.IpAddress.String())
@@ -105,8 +106,18 @@ func (rh *RtspHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*b
 				continue
 			}
 
-			if !escort.MaxReadersReached() {
-				logger.HavenLogger.Info().Msgf("Escort %s has reached the maximum number of readers", escort.IpAddress.String())
+			readers, err := flagship.GetEscortReaders(escort)
+			if err != nil {
+				logger.HavenLogger.Error().Err(err).Msgf("Failed to get readers for escort %s", escort.IpAddress.String())
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, rh.Stream, nil
+			}
+
+			if readers.CurrentViewers >= readers.MaxAllowedViewers {
+				logger.HavenLogger.Info().Msgf(
+					"Escort %s has reached the maximum number of readers. Current viewers: %d. Maxiumum allowed readers: %d",
+					escort.IpAddress.String(), readers.CurrentViewers, readers.MaxAllowedViewers)
 				continue
 			}
 			logger.HavenLogger.Info().Msgf("Redirecting to %s", escort.IpAddress.String())

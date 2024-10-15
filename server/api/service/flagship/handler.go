@@ -8,10 +8,28 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
 	"net/http"
+	"time"
 )
+
+func IsApiOnline(escort *types.Escort) bool {
+	url := fmt.Sprintf("http://%s:%d/escort/info", escort.IpAddress, escort.ApiPort)
+
+	client := http.Client{
+		Timeout: 500 * time.Millisecond,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK
+}
 
 func GetEscortReaders(escort *types.Escort) (info.Response, error) {
 	url := fmt.Sprintf("http://%s:%d/escort/info", escort.IpAddress, escort.ApiPort)
+
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return info.Response{}, err
