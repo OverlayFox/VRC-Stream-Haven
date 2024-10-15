@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/api"
 	"github.com/OverlayFox/VRC-Stream-Haven/api/server"
 	"github.com/OverlayFox/VRC-Stream-Haven/api/service/escort"
@@ -9,6 +10,7 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest"
 	"github.com/OverlayFox/VRC-Stream-Haven/streaming/rtsp"
+	"github.com/gorilla/mux"
 	"github.com/oschwald/geoip2-golang"
 	"net"
 	"net/http"
@@ -16,76 +18,109 @@ import (
 	"strconv"
 )
 
-var isFlagship = false
-var passphrase []byte
-var apiPort = 8080
-var rtspPort = 554
-var srtPort = 8554
-var flagshipIp net.IP
+type Config struct {
+	IsFlagship bool
+	Passphrase []byte
+	ApiPort    int
+	RtspPort   int
+	SrtPort    int
+	FlagshipIp net.IP
+}
+
+var config Config
 
 func init() {
 	logger.InitLogger()
 
-	if len(os.Getenv("PASSPHRASE")) < 10 {
-		logger.HavenLogger.Fatal().Msg("PASSPHRASE not set or shorter than 10 characters.")
+	config = Config{
+		Passphrase: getEnvPassphrase("PASSPHRASE", 10),
+		ApiPort:    getEnvInt("API_PORT", 8080, 1, 65535),
+		RtspPort:   getEnvInt("RTSP_PORT", 554, 1, 65535),
+		SrtPort:    getEnvInt("SRT_PORT", 8554, 1, 65535),
+		FlagshipIp: getEnvIP("FLAGSHIP_IP"),
 	}
-	passphrase = []byte(os.Getenv("PASSPHRASE"))
+
+	if config.FlagshipIp != nil {
+		config.IsFlagship = true
+	}
 
 	var err error
-	rtspPort, err = strconv.Atoi(os.Getenv("RTSP_PORT"))
-	if err != nil || rtspPort <= 0 || rtspPort > 65535 {
-		logger.HavenLogger.Warn().Msg("RTSP_PORT was set to an invalid value, defaulting to 554")
-		rtspPort = 554
-	}
-
-	apiPort, err = strconv.Atoi(os.Getenv("API_PORT"))
-	if err != nil || apiPort <= 0 || apiPort > 65535 || apiPort == rtspPort {
-		logger.HavenLogger.Warn().Msg("API_PORT was set to an invalid value, defaulting to 8080")
-		apiPort = 8080
-	}
-
-	if os.Getenv("SRT_PORT") != "" {
-		srtPort, err = strconv.Atoi(os.Getenv("SRT_PORT"))
-		if err != nil || srtPort <= 0 || srtPort > 65535 || srtPort == rtspPort || srtPort == apiPort {
-			logger.HavenLogger.Warn().Msg("SRT_PORT was set to an invalid value, defaulting to 8554")
-			srtPort = 8554
-		}
-	}
-
-	if os.Getenv("FLAGSHIP_IP") != "" {
-		isFlagship = true
-		flagshipIp = net.ParseIP(os.Getenv("FLAGSHIP_IP"))
-	}
-
 	geoLocator.GeoDatabase, err = geoip2.Open("./geoDatabase/GeoLite2-City.mmdb")
 	if err != nil {
 		logger.HavenLogger.Fatal().Err(err).Msg("Failed to open GeoLite2-City.mmdb")
 	}
 
-	api.Key = passphrase
-
+	api.Key = config.Passphrase
 }
 
-func startFlagship() (chan error, error) {
-	logger.HavenLogger.Info().Msg("Starting as Flagship")
-	errChan := make(chan error)
+func getEnvPassphrase(key string, minLength int) []byte {
+	value := os.Getenv(key)
+	if len(value) < minLength {
+		logger.HavenLogger.Fatal().Msgf("%s not set or shorter than %d characters.", key, minLength)
+	}
+	return []byte(value)
+}
 
-	err := harbor.InitHaven()
-	if err != nil {
-		logger.HavenLogger.Fatal().Err(err).Msg("Failed to initialize Haven")
+func getEnvInt(key string, defaultValue, min, max int) int {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.Atoi(valueStr)
+	if err != nil || value < min || value > max {
+		logger.HavenLogger.Warn().Msgf("%s was set to an invalid value, defaulting to %d", key, defaultValue)
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvIP(key string) net.IP {
+	value := os.Getenv(key)
+	if value == "" {
+		return nil
+	}
+	return net.ParseIP(value)
+}
+
+func main() {
+	var errChan chan error
+	var err error
+
+	// Start the API server
+	var router *mux.Router
+	if config.IsFlagship {
+		router = server.InitFlagshipApi()
+		logger.HavenLogger.Info().Msgf("Starting API server as Flagship on %d", config.ApiPort)
+	} else {
+		router = server.InitEscortApi()
+		logger.HavenLogger.Info().Msgf("Starting API server as Escort on %d", config.ApiPort)
 	}
 
 	go func() {
-		router := server.InitFlagshipApi()
-
-		logger.HavenLogger.Info().Msg("Starting Flagship-API server on :8080")
-		err := http.ListenAndServe(":8080", router)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", config.ApiPort), router)
 		if err != nil {
 			errChan <- err
 		}
 	}()
 
-	rtsp.ServerHandler = rtsp.InitRtspServer(rtspPort)
+	// Generate a escort node
+	node, err := harbor.MakeEscort(554)
+	if err != nil {
+		logger.HavenLogger.Fatal().Err(err).Msg("Failed to build Escort from local machine")
+	}
+
+	// Register the local machine with the flagship if the local machine is not the flagship
+	if !config.IsFlagship {
+		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp)
+		if err != nil {
+			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
+		}
+	} else {
+
+	}
+
+	// Start the RTSP server
+	rtsp.ServerHandler = rtsp.InitRtspServer(config.RtspPort)
 	go func() {
 		err = rtsp.ServerHandler.Server.Start()
 		if err != nil {
@@ -93,64 +128,11 @@ func startFlagship() (chan error, error) {
 		}
 	}()
 
-	return errChan, nil
-}
-
-func startEscort() (chan error, error) {
-	logger.HavenLogger.Info().Msg("Starting as Escort")
-
-	errChan := make(chan error)
-
-	go func() {
-		router := server.InitEscortApi()
-
-		logger.HavenLogger.Info().Msg("Starting Escort-API server on :8080")
-		err := http.ListenAndServe(":8080", router)
-		if err != nil {
-			errChan <- err
-		}
-	}()
-
-	node, err := harbor.MakeEscort(554)
-	if err != nil {
-		return nil, err
-	}
-
-	err = escort.RegisterEscortWithHaven(node, flagshipIp)
-	if err != nil {
-		return nil, err
-	}
-
-	rtspServer := rtsp.InitRtspServer(rtspPort)
-	go func() {
-		err = rtspServer.Server.Start()
-		if err != nil {
-			errChan <- err
-		}
-	}()
-
-	return errChan, nil
-}
-
-func main() {
-	var errChan chan error
-	var err error
-
-	if isFlagship {
-		errChan, err = startFlagship()
-		if err != nil {
-			logger.HavenLogger.Fatal().Err(err).Msg("A fatal server error occurred")
-		}
+	// Start the SRT ingest server
+	if config.IsFlagship {
+		err = ingest.InitFlagshipIngest()
 	} else {
-		errChan, err = startEscort()
-		if err != nil {
-			logger.HavenLogger.Fatal().Err(err).Msg("A fatal server error occurred")
-		}
-	}
-
-	err = ingest.InitIngest(isFlagship)
-	if err != nil {
-		logger.HavenLogger.Fatal().Err(err).Msg("A fatal server error occurred. Could not initialize MediaMTX Ingest")
+		err = ingest.InitEscortIngest()
 	}
 
 	select {

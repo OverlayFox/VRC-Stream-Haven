@@ -50,8 +50,7 @@ func isMediaMtxRunning() (bool, error) {
 	return false, fmt.Errorf("could not extract state. Std-Output: %s Std-Error: %s", string(output), err)
 }
 
-// InitIngest initializes mediaMTX
-func InitIngest(isServer bool) error {
+func startMediaMtxWithConfig(config []byte) error {
 	running, err := isMediaMtxRunning()
 	if err != nil {
 		return fmt.Errorf("could not get status of mediaMtx: %s", err)
@@ -64,22 +63,7 @@ func InitIngest(isServer bool) error {
 		}
 	}
 
-	var config types.MediaMtxConfig
-	var paths types.Paths
-	if isServer {
-		paths = config.BuildFlagshipPath(harbor.Haven.Flagship.Passphrase)
-	} else {
-		paths = config.BuildEscortPath(harbor.Haven.Flagship)
-	}
-
-	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths)
-
-	newData, err := yaml.Marshal(&config)
-	if err != nil {
-		return fmt.Errorf("could not marshal mediaMTX config: %s", err)
-	}
-
-	err = os.WriteFile(os.Getenv("MEDIA_MTX_CONFIG_PATH"), newData, 0644)
+	err = os.WriteFile(os.Getenv("MEDIA_MTX_CONFIG_PATH"), config, 0644)
 	if err != nil {
 		return fmt.Errorf("could not write mediaMTX config: %s", err)
 	}
@@ -90,4 +74,34 @@ func InitIngest(isServer bool) error {
 	}
 
 	return nil
+}
+
+// InitFlagshipIngest initializes mediaMTX with a config that allows a user to push an SRT stream to the server
+func InitFlagshipIngest() error {
+	var config types.MediaMtxConfig
+	var paths types.Paths
+	paths = config.BuildFlagshipPath(harbor.Haven.Flagship.Passphrase)
+	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths)
+
+	newData, err := yaml.Marshal(&config)
+	if err != nil {
+		return fmt.Errorf("could not marshal mediaMTX config: %s", err)
+	}
+
+	return startMediaMtxWithConfig(newData)
+}
+
+// InitEscortIngest initializes mediaMTX with a config that pulls an SRT stream from the Flagship
+func InitEscortIngest() error {
+	var config types.MediaMtxConfig
+	var paths types.Paths
+	paths = config.BuildEscortPath(harbor.Haven.Flagship)
+	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths)
+
+	newData, err := yaml.Marshal(&config)
+	if err != nil {
+		return fmt.Errorf("could not marshal mediaMTX config: %s", err)
+	}
+
+	return startMediaMtxWithConfig(newData)
 }

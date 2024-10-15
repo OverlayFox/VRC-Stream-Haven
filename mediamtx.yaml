@@ -105,7 +105,7 @@ authHTTPExclude:
   - action: pprof
 
 # JWT-based authentication.
-# Users have to login through an external identity server and obtain a JWT.
+# Users have to log in through an external identity server and obtain a JWT.
 # This JWT must contain the claim "mediamtx_permissions" with permissions,
 # for instance:
 # {
@@ -445,7 +445,7 @@ pathDefaults:
   # SRT encryption passphrase require to read from this path
   srtReadPassphrase:
   # If the stream is not available, redirect readers to this path.
-  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
+  # It can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   fallback:
 
   ###############################################
