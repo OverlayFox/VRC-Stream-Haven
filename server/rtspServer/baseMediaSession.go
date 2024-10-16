@@ -1,12 +1,12 @@
 package rtspServer
 
 import (
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
-	"log"
 	"sync"
 )
 
@@ -18,19 +18,19 @@ type Handler struct {
 }
 
 func (rh *Handler) OnConnectionOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	log.Println("Connection Opened")
+	logger.HavenLogger.Info().Msg("Connection Opened")
 }
 
 func (rh *Handler) OnConnectionClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
-	log.Println("Connection Closed")
+	logger.HavenLogger.Info().Msg("Connection Closed")
 }
 
 func (rh *Handler) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
-	log.Println("Session opened")
+	logger.HavenLogger.Info().Msg("Session opened")
 }
 
 func (rh *Handler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	log.Println("Announce Request")
+	logger.HavenLogger.Info().Msg("Announce Request")
 
 	rh.Mutex.Lock()
 	defer rh.Mutex.Unlock()
@@ -49,7 +49,7 @@ func (rh *Handler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.
 }
 
 func (rh *Handler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	log.Println("Setup Request")
+	logger.HavenLogger.Info().Msg("Setup Request")
 
 	if rh.Stream == nil {
 		return &base.Response{
@@ -63,7 +63,7 @@ func (rh *Handler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Respon
 }
 
 func (rh *Handler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	log.Println("Record Request")
+	logger.HavenLogger.Info().Msg("Record Request")
 
 	ctx.Session.OnPacketRTPAny(func(media *description.Media, format format.Format, packet *rtp.Packet) {
 		rh.Stream.WritePacketRTP(media, packet)
@@ -75,7 +75,7 @@ func (rh *Handler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Resp
 }
 
 func (rh *Handler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
-	log.Println("Play Request")
+	logger.HavenLogger.Info().Msg("Play Request")
 
 	if rh.Stream != nil {
 		return &base.Response{
@@ -89,7 +89,7 @@ func (rh *Handler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response
 }
 
 func (rh *Handler) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
-	log.Println("Session closed")
+	logger.HavenLogger.Info().Msg("Session closed")
 
 	rh.Mutex.Lock()
 	defer rh.Mutex.Unlock()

@@ -50,6 +50,8 @@ func init() {
 	}
 
 	apiServer.Key = config.Passphrase
+
+	logger.HavenLogger.Info().Msg("User configuration loaded successfully")
 }
 
 func getEnvPassphrase(key string, minLength int) []byte {
@@ -89,10 +91,10 @@ func main() {
 	var router *mux.Router
 	if config.IsFlagship {
 		router = apiServer.InitFlagshipApi()
-		logger.HavenLogger.Info().Msgf("Starting API server as Flagship on %d", config.ApiPort)
+		logger.HavenLogger.Info().Msgf("Started API server as Flagship on %d", config.ApiPort)
 	} else {
 		router = apiServer.InitEscortApi()
-		logger.HavenLogger.Info().Msgf("Starting API server as Escort on %d", config.ApiPort)
+		logger.HavenLogger.Info().Msgf("Started API server as Escort on %d", config.ApiPort)
 	}
 
 	go func() {
@@ -114,8 +116,12 @@ func main() {
 		if err != nil {
 			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
 		}
+
+		logger.HavenLogger.Info().Msgf("Registered local machine with Flagship at IP: %s", config.FlagshipIp.String())
 	} else {
 		harbor.MakeHaven(*node, uint16(config.SrtPort), string(config.Passphrase))
+
+		logger.HavenLogger.Info().Msgf("Initilised Haven. Local machine is now the Flagship")
 	}
 
 	// Start the RTSP server
@@ -126,12 +132,17 @@ func main() {
 			errChan <- err
 		}
 	}()
+	logger.HavenLogger.Info().Msgf("Started RTSP server on %d", config.RtspPort)
 
 	// Start the SRT ingest server
 	if config.IsFlagship {
 		err = ingest.InitFlagshipIngest()
+
+		logger.HavenLogger.Info().Msgf("Started SRT server on %d as Flagship.", config.SrtPort)
 	} else {
 		err = ingest.InitEscortIngest()
+
+		logger.HavenLogger.Info().Msgf("Started SRT server on %d as Escort.", config.SrtPort)
 	}
 
 	select {
