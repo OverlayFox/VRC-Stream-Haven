@@ -39,12 +39,12 @@ func init() {
 		FlagshipIp: getEnvIP("FLAGSHIP_IP"),
 	}
 
-	if config.FlagshipIp != nil {
+	if config.FlagshipIp == nil {
 		config.IsFlagship = true
 	}
 
 	var err error
-	geoLocator.GeoDatabase, err = geoip2.Open("./geoDatabase/GeoLite2-City.mmdb")
+	geoLocator.GeoDatabase, err = geoip2.Open("./GeoLite2-City.mmdb")
 	if err != nil {
 		logger.HavenLogger.Fatal().Err(err).Msg("Failed to open GeoLite2-City.mmdb")
 	}
@@ -115,7 +115,7 @@ func main() {
 			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
 		}
 	} else {
-
+		harbor.MakeHaven(*node, uint16(config.SrtPort), string(config.Passphrase))
 	}
 
 	// Start the RTSP server

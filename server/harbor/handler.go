@@ -9,6 +9,8 @@ var Haven *types.Haven
 // MakeHaven is used to start up the Haven with one Escorts and one Flagship.
 // The Flagship is the local server that initialised the Haven.
 func MakeHaven(escort types.Escort, srtPort uint16, passpharse string) *types.Haven {
+	Haven = &types.Haven{}
+
 	Haven.Flagship = &types.Flagship{
 		Escort:        escort,
 		SrtIngestPort: srtPort,
@@ -21,7 +23,7 @@ func MakeHaven(escort types.Escort, srtPort uint16, passpharse string) *types.Ha
 
 	Haven.IsServer = true
 
-	return nil
+	return Haven
 }
 
 // MakeEscort creates a types.Escort with the public IP Address of the server that initialised the MakeEscort function.

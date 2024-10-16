@@ -130,9 +130,7 @@ type MediaMtxConfig struct {
 	Paths Paths `yaml:"paths"`
 }
 
-type Paths struct {
-	Path map[string]Path
-}
+type Paths map[string]Path
 
 type Path struct {
 	// Source of the stream. See mediamtx.yml for more information.
@@ -228,33 +226,77 @@ type Path struct {
 func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship) Paths {
 	pullUrl := fmt.Sprintf("srt://%s:%d/egress/flagship?passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
 
+	escortDefault := m.BuildDefaultPath()
+	escortDefault.Source = pullUrl
+	escortDefault.SrtReadPassphrase = flagship.Passphrase
+	escortDefault.SourceOnDemand = true
+	escortDefault.SourceOnDemandStartTimeout = "10s"
+	escortDefault.SourceOnDemandCloseAfter = "120s"
+	escortDefault.MaxReaders = 1
+
 	return Paths{
-		Path: map[string]Path{
-			"ingest/flagship": {
-				Source:                     pullUrl,
-				SrtReadPassphrase:          flagship.Passphrase,
-				SourceOnDemand:             true,
-				SourceOnDemandStartTimeout: "10s",
-				SourceOnDemandCloseAfter:   "120s",
-				MaxReaders:                 1,
-			},
-		},
+		"ingest/flagship": escortDefault,
 	}
 }
 
 func (m *MediaMtxConfig) BuildFlagshipPath(srtPassphrase string) Paths {
+	flagshipDefault := m.BuildDefaultPath()
+	flagshipDefault.SrtReadPassphrase = srtPassphrase
+	flagshipDefault.SrtPublishPassphrase = srtPassphrase
+	flagshipDefault.Source = "publisher"
+
 	return Paths{
-		Path: map[string]Path{
-			"egress/flagship": {
-				Source:               "publisher",
-				SrtPublishPassphrase: srtPassphrase,
-				SrtReadPassphrase:    srtPassphrase,
-			},
-		},
+		"egress/flagship": flagshipDefault,
+	}
+}
+
+func (m *MediaMtxConfig) BuildDefaultPath() Path {
+	return Path{
+		Source:                     "publisher",
+		SourceFingerprint:          "",
+		SourceOnDemand:             false,
+		SourceOnDemandStartTimeout: "10s",
+		SourceOnDemandCloseAfter:   "10s",
+
+		MaxReaders:        0,
+		OverridePublisher: false,
+
+		SrtReadPassphrase:    "",
+		SrtPublishPassphrase: "",
+
+		Record:                false,
+		RecordPartDuration:    "10s",
+		RecordSegmentDuration: "10s",
+		RecordDeleteAfter:     "10s",
+		RecordFormat:          "fmp4",
+
+		RunOnInit:        "",
+		RunOnInitRestart: false,
+
+		RunOnDemand:             "",
+		RunOnDemandRestart:      false,
+		RunOnDemandStartTimeout: "10s",
+		RunOnDemandCloseAfter:   "10s",
+		RunOnUnDemand:           "",
+
+		RunOnReady:        "",
+		RunOnReadyRestart: false,
+		RunOnNotReady:     "",
+
+		RunOnRead:        "",
+		RunOnReadRestart: false,
+		RunOnUnRead:      "",
+
+		RunOnRecordSegmentCreate:   "",
+		RunOnRecordSegmentComplete: "",
 	}
 }
 
 func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths) MediaMtxConfig {
+	defaultPath := m.BuildDefaultPath()
+	defaultPath.SrtReadPassphrase = srtPassphrase
+	defaultPath.SrtPublishPassphrase = srtPassphrase
+
 	return MediaMtxConfig{
 		LogLevel:          "info",
 		LogDestinations:   []string{"stdout"},
@@ -336,7 +378,7 @@ func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths) Me
 
 			RunOnReady:        "",
 			RunOnReadyRestart: false,
-			RunOnNotReady:     "http://127.0.0.1:8080/ingest/disconnect",
+			RunOnNotReady:     "",
 
 			RunOnRead:        "",
 			RunOnReadRestart: false,
