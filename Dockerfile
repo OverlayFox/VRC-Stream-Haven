@@ -37,7 +37,7 @@ RUN set -eux; \
     groupadd --gid $USER_GID $USERNAME; \
     useradd --uid $USER_UID --gid $USERNAME --shell /bin/bash --create-home $USERNAME; \
     #
-    # make directories for hermes
+    # make directories for haven
     mkdir -p /etc/haven /var/www; \
     chown -R $USERNAME:$USERNAME /home/$USERNAME /var/www; \
     #
@@ -81,5 +81,5 @@ EXPOSE 8890
 EXPOSE 9997
 
 #
-# run hermes
+# run haven
 CMD ["/usr/bin/supervisord", "-s", "-c", "/etc/haven/supervisord.conf"]
