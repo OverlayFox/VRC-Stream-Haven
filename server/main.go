@@ -1,20 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"github.com/OverlayFox/VRC-Stream-Haven/apiServer"
-	"github.com/OverlayFox/VRC-Stream-Haven/apiService/escort"
 	"github.com/OverlayFox/VRC-Stream-Haven/geoLocator"
-	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/rtspServer/flagship"
-	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest"
-	"github.com/gorilla/mux"
 	"github.com/oschwald/geoip2-golang"
 	"net"
-	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 )
 
 type Config struct {
@@ -84,69 +82,84 @@ func getEnvIP(key string) net.IP {
 }
 
 func main() {
-	var errChan chan error
+	var errChan = make(chan error, 1)
 	var err error
 
-	// Start the API server
-	var router *mux.Router
-	if config.IsFlagship {
-		router = apiServer.InitFlagshipApi()
-		logger.HavenLogger.Info().Msgf("Started API server as Flagship on %d", config.ApiPort)
-	} else {
-		router = apiServer.InitEscortApi()
-		logger.HavenLogger.Info().Msgf("Started API server as Escort on %d", config.ApiPort)
-	}
-
-	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", config.ApiPort), router)
-		if err != nil {
-			errChan <- err
-		}
-	}()
-
-	// Generate a escort node
-	node, err := harbor.MakeEscort(554)
-	if err != nil {
-		logger.HavenLogger.Fatal().Err(err).Msg("Failed to build Escort from local machine")
-	}
-
-	// Register the local machine with the flagship if the local machine is not the flagship
-	if !config.IsFlagship {
-		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp)
-		if err != nil {
-			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
-		}
-
-		logger.HavenLogger.Info().Msgf("Registered local machine with Flagship at IP: %s", config.FlagshipIp.String())
-	} else {
-		harbor.MakeHaven(*node, uint16(config.SrtPort), string(config.Passphrase))
-
-		logger.HavenLogger.Info().Msgf("Initilised Haven. Local machine is now the Flagship")
-	}
+	//// Start the API server
+	//var router *mux.Router
+	//if config.IsFlagship {
+	//	router = apiServer.InitFlagshipApi()
+	//	logger.HavenLogger.Info().Msgf("Started API server as Flagship on %d", config.ApiPort)
+	//} else {
+	//	router = apiServer.InitEscortApi()
+	//	logger.HavenLogger.Info().Msgf("Started API server as Escort on %d", config.ApiPort)
+	//}
+	//
+	//go func() {
+	//	err := http.ListenAndServe(fmt.Sprintf(":%d", config.ApiPort), router)
+	//	if err != nil {
+	//		errChan <- err
+	//	}
+	//}()
+	//
+	//// Generate a escort node
+	//node, err := harbor.MakeEscort(554)
+	//if err != nil {
+	//	logger.HavenLogger.Fatal().Err(err).Msg("Failed to build Escort from local machine")
+	//}
+	//
+	//// Register the local machine with the flagship if the local machine is not the flagship
+	//if !config.IsFlagship {
+	//	err = escort.RegisterEscortWithHaven(node, config.FlagshipIp)
+	//	if err != nil {
+	//		logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
+	//	}
+	//
+	//	logger.HavenLogger.Info().Msgf("Registered local machine with Flagship at IP: %s", config.FlagshipIp.String())
+	//} else {
+	//	harbor.MakeHaven(*node, uint16(config.SrtPort), string(config.Passphrase))
+	//
+	//	logger.HavenLogger.Info().Msgf("Initilised Haven. Local machine is now the Flagship")
+	//}
 
 	// Start the RTSP server
 	flagship.ServerHandler = flagship.InitRtspServer(config.RtspPort)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		err = flagship.ServerHandler.Server.Start()
+		err = flagship.ServerHandler.Server.StartAndWait()
 		if err != nil {
 			errChan <- err
 		}
 	}()
 	logger.HavenLogger.Info().Msgf("Started RTSP server on %d", config.RtspPort)
 
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
 	// Start the SRT ingest server
-	if config.IsFlagship {
-		err = ingest.InitFlagshipIngest()
-
-		logger.HavenLogger.Info().Msgf("Started SRT server on %d as Flagship.", config.SrtPort)
-	} else {
-		err = ingest.InitEscortIngest()
-
-		logger.HavenLogger.Info().Msgf("Started SRT server on %d as Escort.", config.SrtPort)
-	}
+	//if config.IsFlagship {
+	//	err = ingest.InitFlagshipIngest()
+	//
+	//	logger.HavenLogger.Info().Msgf("Started SRT server on %d as Flagship.", config.SrtPort)
+	//} else {
+	//	err = ingest.InitEscortIngest()
+	//
+	//	logger.HavenLogger.Info().Msgf("Started SRT server on %d as Escort.", config.SrtPort)
+	//}
 
 	select {
 	case err := <-errChan:
 		logger.HavenLogger.Fatal().Err(err).Msg("A fatal server error occurred")
+	case <-signalChan:
+		logger.HavenLogger.Info().Msg("Received termination signal, shutting down")
+		cancel()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := flagship.ServerHandler.Server.Shutdown(shutdownCtx); err != nil {
+			logger.HavenLogger.Error().Err(err).Msg("Error shutting down RTSP server")
+		}
+		logger.HavenLogger.Info().Msg("RTSP server shut down gracefully")
+	}
 	}
 }
