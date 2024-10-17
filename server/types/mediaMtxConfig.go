@@ -224,7 +224,7 @@ type Path struct {
 }
 
 func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort int) Paths {
-	pullUrl := fmt.Sprintf("srt://%s:%d/egress/flagship?passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
+	pullUrl := fmt.Sprintf("srt://%s:%d?streamid=read:egress/flagship?passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
 
 	escortDefault := m.BuildDefaultPath()
 	escortDefault.Source = pullUrl
@@ -233,7 +233,7 @@ func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort i
 	escortDefault.SourceOnDemandStartTimeout = "10s"
 	escortDefault.SourceOnDemandCloseAfter = "120s"
 	escortDefault.MaxReaders = 1
-	//escortDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info connect_timeout=-1 mode=caller -i srt://127.0.0.1:%d?egress/flagship&passphrase=%s -c copy -f rtsp rtsp://127.0.0.1:%d/egress/%s", srtPort, srtPassphrase, rtspPort, srtPassphrase)
+	escortDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://127.0.0.1:%d?streamid=read:egress/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live' -c copy -f rtsp 'rtsp://127.0.0.1:%d/egress/%s'", srtPort, flagship.Passphrase, rtspPort, flagship.Passphrase)
 
 	return Paths{
 		"ingest/flagship": escortDefault,
@@ -245,7 +245,7 @@ func (m *MediaMtxConfig) BuildFlagshipPath(srtPassphrase string, srtPort, rtspPo
 	flagshipDefault.SrtReadPassphrase = srtPassphrase
 	flagshipDefault.SrtPublishPassphrase = srtPassphrase
 	flagshipDefault.Source = "publisher"
-	//flagshipDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info connect_timeout=-1 mode=caller -i srt://127.0.0.1:%d?egress/flagship&passphrase=%s -c copy -f rtsp rtsp://127.0.0.1:%d/egress/%s", srtPort, srtPassphrase, rtspPort, srtPassphrase)
+	flagshipDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://127.0.0.1:%d?streamid=read:egress/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live' -c copy -f rtsp 'rtsp://127.0.0.1:%d/egress/%s'", srtPort, srtPassphrase, rtspPort, srtPassphrase)
 
 	return Paths{
 		"egress/flagship": flagshipDefault,
