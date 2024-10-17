@@ -138,7 +138,7 @@ func jwtMiddleware(next http.Handler) http.Handler {
 // InitFlagshipApi initializes the mux router and sets up the routes for a Flagship Endpoint.
 func InitFlagshipApi() *mux.Router {
 	r := mux.NewRouter()
-	r.Handle("/flagship/register", jwtMiddleware(http.HandlerFunc(RegisterEscortToHaven))).Methods("POST")
+	r.Handle("/flagship/register", http.HandlerFunc(RegisterEscortToHaven)).Methods("POST")
 
 	return r
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/apiServer"
 	"github.com/OverlayFox/VRC-Stream-Haven/apiServer/escort/paths/info"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
 	"io"
 	"net/http"
@@ -23,6 +24,8 @@ func IsApiOnline(escort *types.Escort) bool {
 		return false
 	}
 	defer resp.Body.Close()
+
+	logger.HavenLogger.Debug().Msgf("Escort %s is currently: %d", escort.IpAddress.String(), resp.StatusCode)
 
 	return resp.StatusCode == http.StatusOK
 }

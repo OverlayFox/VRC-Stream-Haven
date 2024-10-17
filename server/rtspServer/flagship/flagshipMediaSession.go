@@ -52,6 +52,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 				Stream: fh.Stream,
 			}
 		}
+		logger.HavenLogger.Debug().Msgf("Client IP: %s. Flagship IP: %s", clientIp.String(), harbor.Haven.Flagship.IpAddress.String())
 
 		closestEscorts := harbor.Haven.GetClosestEscort(city)
 		if closestEscorts[0].IpAddress.Equal(harbor.Haven.Flagship.IpAddress) {
@@ -64,6 +65,10 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 		}
 
 		for _, escort := range closestEscorts {
+			if escort.IpAddress.Equal(harbor.Haven.Flagship.IpAddress) {
+				continue
+			}
+
 			if !flagship.IsApiOnline(escort) {
 				logger.HavenLogger.Warn().Msgf("Escort %s is not reachable. Removing from Haven", escort.IpAddress.String())
 				err := harbor.Haven.RemoveEscort(escort.IpAddress)
@@ -106,11 +111,17 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 
 	select {
 	case <-timeoutCtx.Done():
+		logger.HavenLogger.Warn().Msg("Timed out while locating the client. Redirecting to Flagship")
 		return &base.Response{
 			StatusCode: base.StatusOK,
 		}, fh.Stream, nil
 
 	case result := <-resultChan:
+		if result.Stream != nil {
+			logger.HavenLogger.Debug().Msg("Redirecting Client to Flagship")
+		} else {
+			logger.HavenLogger.Debug().Msgf("Redirecting Client to Escort: %s", result.Response.Header["Location"])
+		}
 		return result.Response, result.Stream, nil
 	}
 }
