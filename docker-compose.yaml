@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080/tcp" # API
       - "8890:8890/udp" # SRT Port (only needed for the Flagship)
-      - "554:554/udp" # RTSP Port
+      - "8554:8554/tcp" # RTSP Port
     deploy:
       resources:
         limits:

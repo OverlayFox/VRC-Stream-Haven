@@ -53,13 +53,13 @@ ENV MEDIA_MTX_CONFIG_PATH="/etc/haven/mediamtx.yml"
 #
 # mandatory envs, leave FLAGSHIP_IP as "" when running as flagship
 ENV PASSPHRASE="helloworldhowareyou"
-ENV RTSP_PORT=554
+ENV RTSP_PORT=8554
 ENV API_PORT=8080
 ENV FLAGSHIP_IP=""
 
 #
 # mandatory envs only used when server is running as the flagship
-ENV SRT_PORT=8554
+ENV SRT_PORT=8699
 
 #
 # mandatory envs only used when server is running as the escort
@@ -79,7 +79,7 @@ COPY server/geoLocator/GeoLite2-City.mmdb /etc/haven/GeoLite2-City.mmdb
 EXPOSE 8080
 EXPOSE 1935
 EXPOSE 8890
-EXPOSE 9997
+EXPOSE 8554
 
 #
 # run haven

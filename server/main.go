@@ -83,7 +83,6 @@ func getEnvIP(key string) net.IP {
 
 func main() {
 	var errChan = make(chan error, 1)
-	var err error
 
 	//// Start the API server
 	//var router *mux.Router
@@ -124,13 +123,10 @@ func main() {
 
 	// Start the RTSP server
 	flagship.ServerHandler = flagship.InitRtspServer(config.RtspPort)
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		err = flagship.ServerHandler.Server.StartAndWait()
-		if err != nil {
-			errChan <- err
-		}
+		errChan <- flagship.ServerHandler.Server.StartAndWait()
 	}()
 	logger.HavenLogger.Info().Msgf("Started RTSP server on %d", config.RtspPort)
 
@@ -154,12 +150,9 @@ func main() {
 	case <-signalChan:
 		logger.HavenLogger.Info().Msg("Received termination signal, shutting down")
 		cancel()
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
-		if err := flagship.ServerHandler.Server.Shutdown(shutdownCtx); err != nil {
-			logger.HavenLogger.Error().Err(err).Msg("Error shutting down RTSP server")
-		}
+		flagship.ServerHandler.Server.Close()
 		logger.HavenLogger.Info().Msg("RTSP server shut down gracefully")
-	}
 	}
 }
