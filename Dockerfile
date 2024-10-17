@@ -59,7 +59,7 @@ ENV FLAGSHIP_IP=""
 
 #
 # mandatory envs only used when server is running as the flagship
-ENV SRT_PORT=8699
+ENV SRT_PORT=8890
 
 #
 # mandatory envs only used when server is running as the escort

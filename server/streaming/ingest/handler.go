@@ -20,8 +20,8 @@ func startMediaMtx() error {
 	return nil
 }
 
-// stopMediaMtx stops the mediaMTX service
-func stopMediaMtx() error {
+// StopMediaMtx stops the mediaMTX service
+func StopMediaMtx() error {
 	cmd := exec.Command("supervisorctl", "stop", "mediamtx")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -57,7 +57,7 @@ func startMediaMtxWithConfig(config []byte) error {
 	}
 
 	if running {
-		err := stopMediaMtx()
+		err := StopMediaMtx()
 		if err != nil {
 			return fmt.Errorf("could not stop mediaMtx: %s", err)
 		}
@@ -77,11 +77,11 @@ func startMediaMtxWithConfig(config []byte) error {
 }
 
 // InitFlagshipIngest initializes mediaMTX with a config that allows a user to push an SRT stream to the server
-func InitFlagshipIngest() error {
+func InitFlagshipIngest(srtPort int) error {
 	var config types.MediaMtxConfig
 	var paths types.Paths
 	paths = config.BuildFlagshipPath(harbor.Haven.Flagship.Passphrase)
-	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths)
+	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths, srtPort)
 
 	newData, err := yaml.Marshal(&config)
 	if err != nil {
@@ -92,11 +92,11 @@ func InitFlagshipIngest() error {
 }
 
 // InitEscortIngest initializes mediaMTX with a config that pulls an SRT stream from the Flagship
-func InitEscortIngest() error {
+func InitEscortIngest(srtPort int) error {
 	var config types.MediaMtxConfig
 	var paths types.Paths
 	paths = config.BuildEscortPath(harbor.Haven.Flagship)
-	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths)
+	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths, srtPort)
 
 	newData, err := yaml.Marshal(&config)
 	if err != nil {

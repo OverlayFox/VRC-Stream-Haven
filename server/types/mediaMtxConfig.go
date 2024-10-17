@@ -292,7 +292,9 @@ func (m *MediaMtxConfig) BuildDefaultPath() Path {
 	}
 }
 
-func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths) MediaMtxConfig {
+func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths, srtPort int) MediaMtxConfig {
+	srtPortStr := fmt.Sprintf(":%d", srtPort)
+
 	defaultPath := m.BuildDefaultPath()
 	defaultPath.SrtReadPassphrase = srtPassphrase
 	defaultPath.SrtPublishPassphrase = srtPassphrase
@@ -346,7 +348,7 @@ func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths) Me
 		RtmpServerCert: "server.crt",
 
 		Srt:        true,
-		SrtAddress: ":8890",
+		SrtAddress: srtPortStr,
 
 		PathDefaults: Path{
 			Source:                     "publisher",
