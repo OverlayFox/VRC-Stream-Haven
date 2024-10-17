@@ -157,3 +157,4 @@ cython_debug/
 
 # PyCharm Settings
 .idea
+GeoLite2-City.mmdb
