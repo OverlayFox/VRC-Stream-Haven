@@ -77,10 +77,10 @@ func startMediaMtxWithConfig(config []byte) error {
 }
 
 // InitFlagshipIngest initializes mediaMTX with a config that allows a user to push an SRT stream to the server
-func InitFlagshipIngest(srtPort int) error {
+func InitFlagshipIngest(srtPort, rtspPort int) error {
 	var config types.MediaMtxConfig
 	var paths types.Paths
-	paths = config.BuildFlagshipPath(harbor.Haven.Flagship.Passphrase)
+	paths = config.BuildFlagshipPath(harbor.Haven.Flagship.Passphrase, srtPort, rtspPort)
 	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths, srtPort)
 
 	newData, err := yaml.Marshal(&config)
@@ -92,10 +92,10 @@ func InitFlagshipIngest(srtPort int) error {
 }
 
 // InitEscortIngest initializes mediaMTX with a config that pulls an SRT stream from the Flagship
-func InitEscortIngest(srtPort int) error {
+func InitEscortIngest(srtPort, rtspPort int) error {
 	var config types.MediaMtxConfig
 	var paths types.Paths
-	paths = config.BuildEscortPath(harbor.Haven.Flagship)
+	paths = config.BuildEscortPath(harbor.Haven.Flagship, srtPort, rtspPort)
 	config = config.BuildConfig(harbor.Haven.Flagship.Passphrase, paths, srtPort)
 
 	newData, err := yaml.Marshal(&config)

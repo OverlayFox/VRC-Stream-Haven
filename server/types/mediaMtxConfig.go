@@ -223,7 +223,7 @@ type Path struct {
 	RunOnRecordSegmentComplete string `yaml:"runOnRecordSegmentComplete"`
 }
 
-func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship) Paths {
+func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort int) Paths {
 	pullUrl := fmt.Sprintf("srt://%s:%d/egress/flagship?passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
 
 	escortDefault := m.BuildDefaultPath()
@@ -233,17 +233,19 @@ func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship) Paths {
 	escortDefault.SourceOnDemandStartTimeout = "10s"
 	escortDefault.SourceOnDemandCloseAfter = "120s"
 	escortDefault.MaxReaders = 1
+	//escortDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info connect_timeout=-1 mode=caller -i srt://127.0.0.1:%d?egress/flagship&passphrase=%s -c copy -f rtsp rtsp://127.0.0.1:%d/egress/%s", srtPort, srtPassphrase, rtspPort, srtPassphrase)
 
 	return Paths{
 		"ingest/flagship": escortDefault,
 	}
 }
 
-func (m *MediaMtxConfig) BuildFlagshipPath(srtPassphrase string) Paths {
+func (m *MediaMtxConfig) BuildFlagshipPath(srtPassphrase string, srtPort, rtspPort int) Paths {
 	flagshipDefault := m.BuildDefaultPath()
 	flagshipDefault.SrtReadPassphrase = srtPassphrase
 	flagshipDefault.SrtPublishPassphrase = srtPassphrase
 	flagshipDefault.Source = "publisher"
+	//flagshipDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info connect_timeout=-1 mode=caller -i srt://127.0.0.1:%d?egress/flagship&passphrase=%s -c copy -f rtsp rtsp://127.0.0.1:%d/egress/%s", srtPort, srtPassphrase, rtspPort, srtPassphrase)
 
 	return Paths{
 		"egress/flagship": flagshipDefault,
