@@ -140,7 +140,7 @@ func main() {
 	logger.HavenLogger.Info().Msgf("Started RTSP server on %d", config.RtspPort)
 
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	// Start the SRT ingest server
 	if config.IsFlagship {
