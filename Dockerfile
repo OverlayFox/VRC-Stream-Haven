@@ -56,6 +56,7 @@ ENV PASSPHRASE="helloworldhowareyou"
 ENV RTSP_PORT=8554
 ENV API_PORT=8080
 ENV FLAGSHIP_IP=""
+ENV FLAGSHIP_API_PORT=8080
 
 #
 # mandatory envs only used when server is running as the flagship

@@ -62,6 +62,7 @@ func GetInfo(w http.ResponseWriter, r *http.Request) {
 
 // RegisterEscortToHaven adds the caller as an escort to the haven
 func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
+	logger.HavenLogger.Debug().Msgf("Received request from %s", r.RemoteAddr)
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

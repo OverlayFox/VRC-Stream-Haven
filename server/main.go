@@ -23,12 +23,13 @@ import (
 )
 
 type Config struct {
-	IsFlagship bool
-	Passphrase []byte
-	ApiPort    int
-	RtspPort   int
-	SrtPort    int
-	FlagshipIp net.IP
+	IsFlagship      bool
+	Passphrase      []byte
+	ApiPort         int
+	RtspPort        int
+	SrtPort         int
+	FlagshipIp      net.IP
+	FlagshipApiPort int
 }
 
 var config Config
@@ -37,11 +38,12 @@ func init() {
 	logger.InitLogger()
 
 	config = Config{
-		Passphrase: getEnvPassphrase("PASSPHRASE", 10),
-		ApiPort:    getEnvInt("API_PORT", 8080, 1, 65535),
-		RtspPort:   getEnvInt("RTSP_PORT", 554, 1, 65535),
-		SrtPort:    getEnvInt("SRT_PORT", 8554, 1, 65535),
-		FlagshipIp: getEnvIP("FLAGSHIP_IP"),
+		Passphrase:      getEnvPassphrase("PASSPHRASE", 10),
+		ApiPort:         getEnvInt("API_PORT", 8080, 1, 65535),
+		RtspPort:        getEnvInt("RTSP_PORT", 554, 1, 65535),
+		SrtPort:         getEnvInt("SRT_PORT", 8554, 1, 65535),
+		FlagshipIp:      getEnvIP("FLAGSHIP_IP"),
+		FlagshipApiPort: getEnvInt("FLAGSHIP_API_PORT", 8080, 1, 65535),
 	}
 
 	if config.FlagshipIp == nil {
@@ -120,7 +122,7 @@ func main() {
 
 	// Register the local machine with the flagship if the local machine is not the flagship
 	if !config.IsFlagship {
-		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp)
+		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp, config.FlagshipApiPort)
 		if err != nil {
 			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
 		}
