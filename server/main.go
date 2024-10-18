@@ -180,8 +180,15 @@ func main() {
 			logger.HavenLogger.Info().Msg("API server shut down gracefully")
 		}
 
-		flagship.ServerHandler.Server.Close()
-		logger.HavenLogger.Info().Msg("RTSP server shut down gracefully")
+		if rtspFlagship.ServerHandler != nil {
+			rtspFlagship.ServerHandler.Server.Close()
+			logger.HavenLogger.Info().Msg("Flagship RTSP server shut down gracefully")
+		}
+
+		if rtspEscort.ServerHandler != nil {
+			rtspEscort.ServerHandler.Server.Close()
+			logger.HavenLogger.Info().Msg("Escort RTSP server shut down gracefully")
+		}
 
 		err = ingest.StopMediaMtx()
 		if err != nil {
