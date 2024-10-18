@@ -227,6 +227,7 @@ type Path struct {
 func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort int) Paths {
 	logger.HavenLogger.Debug().Msgf("Pulling SRT feed from %s:%d", flagship.IpAddress.String(), srtPort)
 	pullCommand := fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://%s:%d?streamid=read:egress/flagship&passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live' -c copy -f mpegts 'srt://127.0.0.1:%d?streamid=publish:ingest/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live'", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase, srtPort, flagship.Passphrase)
+	//pullCommand := fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://10.42.156.11:%d?streamid=read:egress/flagship&passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live' -c copy -f mpegts 'srt://127.0.0.1:%d?streamid=publish:ingest/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live'", flagship.SrtIngestPort, flagship.Passphrase, srtPort, flagship.Passphrase)
 
 	escortDefault := m.BuildDefaultPath()
 	escortDefault.Source = "publisher"

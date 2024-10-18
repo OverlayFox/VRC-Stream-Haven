@@ -15,7 +15,7 @@ import (
 )
 
 // RegisterEscortWithHaven adds the current escort to the haven via an API call
-func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipApiPort int) error {
+func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipApiPort int, passphrase []byte) error {
 	logger.HavenLogger.Debug().Msg("Registering Escort with Flagship")
 	url := fmt.Sprintf("http://%s:%d", flagshipIp.String(), flagshipApiPort)
 
@@ -60,7 +60,7 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipAp
 		Latitude:       0,
 		Longitude:      0,
 	}
-	harbor.MakeHaven(flagshipEscort, decodedBody.SrtPort, "")
+	harbor.MakeHaven(flagshipEscort, decodedBody.SrtPort, string(passphrase))
 	logger.HavenLogger.Info().Msgf("Successfully registered Escort with Flagship at %s", harbor.Haven.Flagship.IpAddress.String())
 
 	return nil
