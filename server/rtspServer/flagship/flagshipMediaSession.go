@@ -110,6 +110,13 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 				Stream: nil,
 			}
 		}
+
+		resultChan <- ResponseStream{
+			Response: &base.Response{
+				StatusCode: base.StatusOK,
+			},
+			Stream: fh.Stream,
+		}
 	}()
 
 	select {

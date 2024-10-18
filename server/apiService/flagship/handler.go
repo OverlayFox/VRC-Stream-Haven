@@ -13,10 +13,11 @@ import (
 )
 
 func IsApiOnline(escort *types.Escort) bool {
-	url := fmt.Sprintf("http://%s:%d/escort/info", escort.IpAddress, escort.ApiPort)
+	url := fmt.Sprintf("http://%s:%d/escort/info", escort.IpAddress.String(), escort.ApiPort)
+	logger.HavenLogger.Debug().Msgf("Checking if Escort %s is online on port %d", escort.IpAddress.String(), escort.ApiPort)
 
 	client := http.Client{
-		Timeout: 500 * time.Millisecond,
+		Timeout: 2 * time.Second,
 	}
 
 	resp, err := client.Get(url)

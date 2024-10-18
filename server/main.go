@@ -9,7 +9,8 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/geoLocator"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
-	"github.com/OverlayFox/VRC-Stream-Haven/rtspServer/flagship"
+	rtspEscort "github.com/OverlayFox/VRC-Stream-Haven/rtspServer/escort"
+	rtspFlagship "github.com/OverlayFox/VRC-Stream-Haven/rtspServer/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/streaming/ingest"
 	"github.com/gorilla/mux"
 	"github.com/oschwald/geoip2-golang"
@@ -126,7 +127,6 @@ func main() {
 		if err != nil {
 			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
 		}
-
 		logger.HavenLogger.Info().Msgf("Registered local machine with Flagship at IP: %s", config.FlagshipIp.String())
 	} else {
 		harbor.MakeHaven(*node, uint16(config.SrtPort), string(config.Passphrase))
@@ -135,11 +135,21 @@ func main() {
 	}
 
 	// Start the RTSP server
-	flagship.ServerHandler = flagship.InitRtspServer(config.RtspPort)
-	go func() {
-		errChan <- flagship.ServerHandler.Server.StartAndWait()
-	}()
-	logger.HavenLogger.Info().Msgf("Started RTSP server on %d", config.RtspPort)
+	if !config.IsFlagship {
+		rtspEscort.ServerHandler = rtspEscort.InitRtspServer(config.RtspPort)
+
+		go func() {
+			errChan <- rtspEscort.ServerHandler.Server.StartAndWait()
+		}()
+		logger.HavenLogger.Info().Msgf("Started RTSP server as Escort on %d", config.RtspPort)
+	} else {
+		rtspFlagship.ServerHandler = rtspFlagship.InitRtspServer(config.RtspPort)
+
+		go func() {
+			errChan <- rtspFlagship.ServerHandler.Server.StartAndWait()
+		}()
+		logger.HavenLogger.Info().Msgf("Started RTSP server as Flagship on %d", config.RtspPort)
+	}
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
