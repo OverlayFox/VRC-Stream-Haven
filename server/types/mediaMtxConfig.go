@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 )
 
 type MediaMtxConfig struct {
@@ -224,7 +225,8 @@ type Path struct {
 }
 
 func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort int) Paths {
-	pullUrl := fmt.Sprintf("srt://%s:%d?streamid=read:egress/flagship?passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
+	logger.HavenLogger.Debug().Msgf("Pulling SRT feed from %s:%d", flagship.IpAddress.String(), srtPort)
+	pullUrl := fmt.Sprintf("srt://%s:%d?streamid=read:egress/flagship&passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase)
 
 	escortDefault := m.BuildDefaultPath()
 	escortDefault.Source = pullUrl
@@ -233,7 +235,7 @@ func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort i
 	escortDefault.SourceOnDemandStartTimeout = "10s"
 	escortDefault.SourceOnDemandCloseAfter = "120s"
 	escortDefault.MaxReaders = 1
-	escortDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://127.0.0.1:%d?streamid=read:egress/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live' -c copy -f rtsp 'rtsp://127.0.0.1:%d/egress/%s'", srtPort, flagship.Passphrase, rtspPort, flagship.Passphrase)
+	escortDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://127.0.0.1:%d?streamid=read:ingest/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live' -c copy -f rtsp 'rtsp://127.0.0.1:%d/egress/%s'", srtPort, flagship.Passphrase, rtspPort, flagship.Passphrase)
 
 	return Paths{
 		"ingest/flagship": escortDefault,

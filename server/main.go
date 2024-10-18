@@ -148,11 +148,11 @@ func main() {
 	if config.IsFlagship {
 		err = ingest.InitFlagshipIngest(config.SrtPort, config.RtspPort)
 
-		logger.HavenLogger.Info().Msgf("Started SRT server on %d as Flagship.", config.SrtPort)
+		logger.HavenLogger.Info().Msgf("Started SRT server on %d as Flagship. Ready to receive ingest signal.", config.SrtPort)
 	} else {
 		err = ingest.InitEscortIngest(config.SrtPort, config.RtspPort)
 
-		logger.HavenLogger.Info().Msgf("Started SRT server on %d as Escort.", config.SrtPort)
+		logger.HavenLogger.Info().Msgf("Started SRT server on port %d. Pulling SRT Feed from Flagship", config.SrtPort)
 	}
 
 	select {
