@@ -62,20 +62,19 @@ func GetInfo(w http.ResponseWriter, r *http.Request) {
 
 // RegisterEscortToHaven adds the caller as an escort to the haven
 func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
-	logger.HavenLogger.Debug().Msgf("Received request from %s", r.RemoteAddr)
+	logger.HavenLogger.Debug().Msgf("Received escort register request from %s", r.RemoteAddr)
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	logger.HavenLogger.Debug().Msgf("Received following body: %s", string(bodyBytes))
 	bodyJson, err := Decrypt(string(bodyBytes))
 	if err != nil {
 		http.Error(w, "Failed to decrypt body", http.StatusInternalServerError)
 		return
 	}
-	logger.HavenLogger.Debug().Msgf("Received following body: %s", bodyJson)
+	logger.HavenLogger.Debug().Msgf("Received following body from escort: %s", bodyJson)
 
 	var escort types.Escort
 	if err := json.Unmarshal([]byte(bodyJson), &escort); err != nil {
@@ -88,6 +87,7 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 	}
 
 	harbor.Haven.AddEscort(&escort)
+	logger.HavenLogger.Info().Msgf("Successfully added escort %s to haven", escort.IpAddress)
 
 	response := register.Response{
 		IpAddress: harbor.Haven.Flagship.IpAddress.String(),
@@ -99,7 +99,6 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse response to json string", http.StatusInternalServerError)
 		return
 	}
-	logger.HavenLogger.Debug().Msgf("Sending response: %s", responseJson)
 
 	encrypt, err := Encrypt(responseJson)
 	if err != nil {
@@ -113,6 +112,8 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to write response", http.StatusInternalServerError)
 		return
 	}
+
+	logger.HavenLogger.Info().Msgf("Successfully send approval response to escort %s", escort.IpAddress)
 }
 
 // jwtMiddleware checks for a valid JWT token in the Authorization header

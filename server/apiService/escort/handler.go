@@ -16,14 +16,14 @@ import (
 
 // RegisterEscortWithHaven adds the current escort to the haven via an API call
 func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipApiPort int) error {
-	logger.HavenLogger.Info().Msg("Registering Escort with Flagship")
+	logger.HavenLogger.Debug().Msg("Registering Escort with Flagship")
 	url := fmt.Sprintf("http://%s:%d", flagshipIp.String(), flagshipApiPort)
 
 	jsonData, err := json.Marshal(escort)
 	if err != nil {
 		return err
 	}
-	logger.HavenLogger.Debug().Msgf("Request Body: %s", string(jsonData))
+	logger.HavenLogger.Debug().Msgf("Body used to register with Flagship: %s", string(jsonData))
 	encryptedBody, err := apiServer.Encrypt(string(jsonData))
 
 	request, err := http.NewRequest("POST", url+"/flagship/register", bytes.NewBufferString(encryptedBody))
@@ -31,7 +31,6 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipAp
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
-	logger.HavenLogger.Debug().Msgf("Request URL: %s", request.URL)
 
 	client := &http.Client{}
 	response, err := client.Do(request)
@@ -39,7 +38,6 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipAp
 		return err
 	}
 	defer response.Body.Close()
-	logger.HavenLogger.Debug().Msgf("Response Status: %s", response.Status)
 
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -55,7 +53,6 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipAp
 	if err := json.Unmarshal([]byte(bodyJson), &decodedBody); err != nil {
 		return err
 	}
-	logger.HavenLogger.Debug().Msgf("Response Status: %s \n Reponse Message: %s", response.Status, decodedBody.IpAddress)
 
 	flagshipEscort := types.Escort{
 		IpAddress:      net.ParseIP(decodedBody.IpAddress),
@@ -64,6 +61,7 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipAp
 		Longitude:      0,
 	}
 	harbor.MakeHaven(flagshipEscort, decodedBody.SrtPort, "")
+	logger.HavenLogger.Info().Msgf("Successfully registered Escort with Flagship at %s", harbor.Haven.Flagship.IpAddress.String())
 
 	return nil
 }

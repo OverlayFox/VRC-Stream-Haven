@@ -25,7 +25,7 @@ func MakeHaven(escort types.Escort, srtPort uint16, passpharse string) *types.Ha
 }
 
 // MakeEscort creates a types.Escort with the public IP Address of the server that initialised the MakeEscort function.
-func MakeEscort(rtspEgressPort uint16) (*types.Escort, error) {
+func MakeEscort(rtspEgressPort, apiPort uint16) (*types.Escort, error) {
 	ip, err := GetPublicIpAddress()
 	if err != nil {
 		return &types.Escort{}, err
@@ -36,5 +36,6 @@ func MakeEscort(rtspEgressPort uint16) (*types.Escort, error) {
 		RtspEgressPort: rtspEgressPort,
 		Latitude:       ip.Latitude,
 		Longitude:      ip.Longitude,
+		ApiPort:        apiPort,
 	}, nil
 }

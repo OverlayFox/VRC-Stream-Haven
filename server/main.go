@@ -115,14 +115,14 @@ func main() {
 	}()
 
 	// Generate a escort node
-	node, err := harbor.MakeEscort(554)
+	node, err := harbor.MakeEscort(uint16(config.RtspPort), uint16(config.ApiPort))
 	if err != nil {
 		logger.HavenLogger.Fatal().Err(err).Msg("Failed to build Escort from local machine")
 	}
 
 	// Register the local machine with the flagship if the local machine is not the flagship
 	if !config.IsFlagship {
-		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp, config.FlagshipApiPort)
+		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp, config.ApiPort)
 		if err != nil {
 			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
 		}
