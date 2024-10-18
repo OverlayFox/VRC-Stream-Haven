@@ -226,7 +226,7 @@ type Path struct {
 
 func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort int) Paths {
 	logger.HavenLogger.Debug().Msgf("Pulling SRT feed from %s:%d", flagship.IpAddress.String(), srtPort)
-	pullCommand := fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://%s:%d?streamid=read:egress/flagship&passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live' -c copy -f mpegts 'srt://127.0.0.1:%d?streamid=publish:ingest/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live'", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase, srtPort, flagship.Passphrase)
+	pullCommand := fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://%s:%d?streamid=read:egress/flagship&passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live' -c copy -f rtsp 'rtsp://127.0.0.1:%d/egress/%s'", flagship.IpAddress.String(), flagship.SrtIngestPort, flagship.Passphrase, rtspPort, flagship.Passphrase)
 	//pullCommand := fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://10.42.156.11:%d?streamid=read:egress/flagship&passphrase=%s&latency=8000&mode=caller&smoother=live&transtype=live' -c copy -f mpegts 'srt://127.0.0.1:%d?streamid=publish:ingest/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live'", flagship.SrtIngestPort, flagship.Passphrase, srtPort, flagship.Passphrase)
 
 	escortDefault := m.BuildDefaultPath()
@@ -235,9 +235,7 @@ func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort i
 	escortDefault.RunOnInitRestart = true
 	escortDefault.SrtReadPassphrase = flagship.Passphrase
 	escortDefault.SrtPublishPassphrase = flagship.Passphrase
-	escortDefault.MaxReaders = 2
-	escortDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://127.0.0.1:%d?streamid=read:ingest/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live' -c copy -f rtsp 'rtsp://127.0.0.1:%d/egress/%s'", srtPort, flagship.Passphrase, rtspPort, flagship.Passphrase)
-	escortDefault.RunOnReadyRestart = true
+	escortDefault.MaxReaders = 1
 
 	return Paths{
 		"ingest/flagship": escortDefault,

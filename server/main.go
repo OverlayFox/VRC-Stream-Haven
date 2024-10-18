@@ -122,7 +122,7 @@ func main() {
 
 	// Register the local machine with the flagship if the local machine is not the flagship
 	if !config.IsFlagship {
-		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp, config.ApiPort, config.Passphrase)
+		err = escort.RegisterEscortWithHaven(node, config.FlagshipIp, config.FlagshipApiPort, config.Passphrase)
 		if err != nil {
 			logger.HavenLogger.Fatal().Err(err).Msgf("Failed to register local machine with Flagship at IP: %s", config.FlagshipIp.String())
 		}
