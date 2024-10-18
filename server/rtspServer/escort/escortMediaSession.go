@@ -1,12 +1,13 @@
 package flagship
 
 import (
-	"fmt"
+	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/OverlayFox/VRC-Stream-Haven/rtspServer"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"log"
 	"reflect"
+	"unsafe"
 )
 
 type EscortHandler struct {
@@ -15,19 +16,13 @@ type EscortHandler struct {
 
 // GetReaders gets the readers map from a Stream instance using reflection.
 func (eh *EscortHandler) GetReaders() (int, error) {
-	val := reflect.ValueOf(eh.Stream).Elem()
+	streamReflect := reflect.ValueOf(eh.Stream).Elem()
+	readersField := streamReflect.FieldByName("readers")
+	readersField = reflect.NewAt(readersField.Type(), unsafe.Pointer(readersField.UnsafeAddr())).Elem()
 
-	readersField := val.FieldByName("readers")
-	if !readersField.IsValid() {
-		return 0, fmt.Errorf("field 'readers' not found")
-	}
+	logger.HavenLogger.Info().Msgf("Readers: %v", readersField)
 
-	readers, ok := readersField.Interface().(map[*gortsplib.ServerSession]struct{})
-	if !ok {
-		return 0, fmt.Errorf("could not convert 'readers' field to the expected type")
-	}
-
-	return len(readers), nil
+	return 1, nil
 }
 
 func (eh *EscortHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
