@@ -233,11 +233,10 @@ func (m *MediaMtxConfig) BuildEscortPath(flagship *Flagship, srtPort, rtspPort i
 	escortDefault.RunOnInit = pullCommand
 	escortDefault.RunOnInitRestart = true
 	escortDefault.SrtReadPassphrase = flagship.Passphrase
-	escortDefault.SourceOnDemand = true
-	escortDefault.SourceOnDemandStartTimeout = "10s"
-	escortDefault.SourceOnDemandCloseAfter = "120s"
+	escortDefault.SrtPublishPassphrase = flagship.Passphrase
 	escortDefault.MaxReaders = 2
 	escortDefault.RunOnReady = fmt.Sprintf("ffmpeg -y -hide_banner -loglevel info -i 'srt://127.0.0.1:%d?streamid=read:ingest/flagship&passphrase=%s&mode=caller&smoother=live&transtype=live' -c copy -f rtsp 'rtsp://127.0.0.1:%d/egress/%s'", srtPort, flagship.Passphrase, rtspPort, flagship.Passphrase)
+	escortDefault.RunOnReadyRestart = true
 
 	return Paths{
 		"ingest/flagship": escortDefault,
