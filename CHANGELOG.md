@@ -7,9 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### [Added]
-- main package that handles the running server
-- geoLocator to locate clients based on IPAddress collected in the describe process
-- added geoLocator database from MaxMind, Inc.
-- added nodeService to handle node config readouts
-- added logic to describe function to redirect client to the closest available node
+## [0.1.0] - 2024-10-19
+
+### Added
+
+- Initial release of VRC-Stream-Haven.
