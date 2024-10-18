@@ -41,8 +41,10 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 
 	go func() {
 		clientIp := ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
+		logger.HavenLogger.Debug().Msgf("Received read request from IP: %s", clientIp.String())
 
 		city, err := geoLocator.LocateIp(clientIp.String())
+		logger.HavenLogger.Debug().Msgf("Client is located in %s", city.City.Names["en"])
 		if err != nil {
 			logger.HavenLogger.Warn().Err(err).Msg("Failed to locate IP of the client. Redirecting to Flagship")
 			resultChan <- ResponseStream{
@@ -52,10 +54,11 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 				Stream: fh.Stream,
 			}
 		}
-		logger.HavenLogger.Debug().Msgf("Client IP: %s. Flagship IP: %s", clientIp.String(), harbor.Haven.Flagship.IpAddress.String())
 
 		closestEscorts := harbor.Haven.GetClosestEscort(city)
+		logger.HavenLogger.Debug().Msgf("Ordered list of clostest Escorts: %v", closestEscorts)
 		if closestEscorts[0].IpAddress.Equal(harbor.Haven.Flagship.IpAddress) {
+			logger.HavenLogger.Debug().Msg("Client is closest to Flagship.")
 			resultChan <- ResponseStream{
 				Response: &base.Response{
 					StatusCode: base.StatusOK,

@@ -309,9 +309,9 @@ func (m *MediaMtxConfig) BuildConfig(srtPassphrase string, pathsConfig Paths, sr
 		LogLevel:          "info",
 		LogDestinations:   []string{"stdout"},
 		LogFile:           "mediamtx.log",
-		ReadTimeout:       "10s",
-		WriteTimeout:      "10s",
-		WriteQueueSize:    512,
+		ReadTimeout:       "20s",
+		WriteTimeout:      "20s",
+		WriteQueueSize:    4096,
 		UdpMaxPayloadSize: 1472,
 
 		RunOnConnect:        "",
