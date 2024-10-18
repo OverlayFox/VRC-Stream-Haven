@@ -56,7 +56,6 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 		}
 
 		closestEscorts := harbor.Haven.GetClosestEscort(city)
-		logger.HavenLogger.Debug().Msgf("Ordered list of clostest Escorts: %v", closestEscorts)
 		if closestEscorts[0].IpAddress.Equal(harbor.Haven.Flagship.IpAddress) {
 			logger.HavenLogger.Debug().Msg("Client is closest to Flagship.")
 			resultChan <- ResponseStream{
@@ -92,7 +91,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 				}
 			}
 
-			if readers.CurrentViewers >= readers.MaxAllowedViewers {
+			if readers.MaxAllowedViewers < 0 && readers.CurrentViewers >= readers.MaxAllowedViewers {
 				logger.HavenLogger.Info().Msgf(
 					"Escort %s has reached the maximum number of readers. Current viewers: %d. Maxiumum allowed readers: %d",
 					escort.IpAddress.String(), readers.CurrentViewers, readers.MaxAllowedViewers)

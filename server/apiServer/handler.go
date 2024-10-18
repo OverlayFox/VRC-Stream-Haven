@@ -25,7 +25,7 @@ func GetInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var maxViewers int
+	var maxViewers = 0
 	if os.Getenv("MAX_VIEWERS") != "" && os.Getenv("MAX_VIEWERS") != "0" {
 		maxViewers, err = strconv.Atoi(os.Getenv("MAX_VIEWERS"))
 		if err != nil {
