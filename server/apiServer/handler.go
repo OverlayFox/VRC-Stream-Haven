@@ -69,6 +69,7 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger.HavenLogger.Debug().Msgf("Received following body: %s", string(bodyBytes))
 	bodyJson, err := Decrypt(string(bodyBytes))
 	if err != nil {
 		http.Error(w, "Failed to decrypt body", http.StatusInternalServerError)

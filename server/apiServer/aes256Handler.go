@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -11,9 +12,14 @@ import (
 
 var Key []byte
 
+func deriveKey() []byte {
+	hash := sha256.Sum256(Key)
+	return hash[:]
+}
+
 // Encrypt encrypts a plaintext with a passphrase and return a base64 encoded string
 func Encrypt(plainText string) (string, error) {
-	block, err := aes.NewCipher(Key)
+	block, err := aes.NewCipher(deriveKey())
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +42,7 @@ func Decrypt(encryptedText string) (string, error) {
 		return "", err
 	}
 
-	block, err := aes.NewCipher(Key)
+	block, err := aes.NewCipher(deriveKey())
 	if err != nil {
 		return "", err
 	}
