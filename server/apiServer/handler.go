@@ -74,13 +74,13 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to decrypt body", http.StatusInternalServerError)
 		return
 	}
+	logger.HavenLogger.Debug().Msgf("Received following body: %s", bodyJson)
 
 	var escort types.Escort
 	if err := json.Unmarshal([]byte(bodyJson), &escort); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	err = harbor.Haven.RemoveEscort(escort.IpAddress)
 	if err == nil {
 		logger.HavenLogger.Warn().Msgf("Escort %s already exists, removing it", escort.IpAddress)
@@ -98,6 +98,7 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse response to json string", http.StatusInternalServerError)
 		return
 	}
+	logger.HavenLogger.Debug().Msgf("Sending response: %s", responseJson)
 
 	encrypt, err := Encrypt(responseJson)
 	if err != nil {

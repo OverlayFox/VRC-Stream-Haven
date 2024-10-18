@@ -72,7 +72,6 @@ COPY --from=builder /server/myapp /etc/haven/server_binary
 COPY supervisord.conf /etc/haven/supervisord.conf
 #COPY mediamtx.yml $MEDIA_MTX_CONFIG_PATH
 COPY --from=bluenviron/mediamtx:latest /mediamtx /usr/bin/mediamtx
-COPY bashScripts /etc/haven/bashScripts
 COPY server/geoLocator/GeoLite2-City.mmdb /etc/haven/GeoLite2-City.mmdb
 
 #
