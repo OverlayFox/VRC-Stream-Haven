@@ -1,7 +1,7 @@
 package flagship
 
 import (
-	"github.com/OverlayFox/VRC-Stream-Haven/logger"
+	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/rtspServer"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
@@ -16,13 +16,27 @@ type EscortHandler struct {
 
 // GetReaders gets the readers map from a Stream instance using reflection.
 func (eh *EscortHandler) GetReaders() (int, error) {
-	streamReflect := reflect.ValueOf(eh.Stream).Elem()
+	if eh.Stream == nil {
+		return 0, fmt.Errorf("stream is nil")
+	}
+
+	streamReflect := reflect.ValueOf(eh.Stream)
+	if !streamReflect.IsValid() || streamReflect.Kind() != reflect.Ptr || streamReflect.IsNil() {
+		return 0, fmt.Errorf("invalid Stream value")
+	}
+
+	streamReflect = streamReflect.Elem()
 	readersField := streamReflect.FieldByName("readers")
+	if !readersField.IsValid() {
+		return 0, fmt.Errorf("field 'readers' not found")
+	}
+
 	readersField = reflect.NewAt(readersField.Type(), unsafe.Pointer(readersField.UnsafeAddr())).Elem()
+	if readersField.Kind() != reflect.Map {
+		return 0, fmt.Errorf("field 'readers' is not a map")
+	}
 
-	logger.HavenLogger.Info().Msgf("Readers: %v", readersField)
-
-	return 1, nil
+	return readersField.Len(), nil
 }
 
 func (eh *EscortHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
