@@ -147,7 +147,7 @@ func InitFlagshipApi() *mux.Router {
 // InitEscortApi initializes the mux router and sets up the routes for a Escort Endpoint.
 func InitEscortApi() *mux.Router {
 	r := mux.NewRouter()
-	r.Handle("/escort/info", jwtMiddleware(http.HandlerFunc(GetInfo))).Methods("GET")
+	r.Handle("/escort/info", http.HandlerFunc(GetInfo)).Methods("GET")
 
 	return r
 }
