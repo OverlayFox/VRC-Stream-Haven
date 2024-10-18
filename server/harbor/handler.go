@@ -21,8 +21,6 @@ func MakeHaven(escort types.Escort, srtPort uint16, passpharse string) *types.Ha
 	Haven.Escorts = &escorts
 	*Haven.Escorts = append(*Haven.Escorts, &escort)
 
-	Haven.IsServer = true
-
 	return Haven
 }
 

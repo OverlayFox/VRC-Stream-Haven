@@ -11,7 +11,6 @@ import (
 type Haven struct {
 	Escorts  *[]*Escort `yaml:"nodes"`
 	Flagship *Flagship  `yaml:"server"`
-	IsServer bool       `yaml:"isServer"`
 }
 
 // GetClosestEscort returns a sorted list. The first element is the closest escort to the client.

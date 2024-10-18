@@ -57,16 +57,13 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipAp
 	}
 	logger.HavenLogger.Debug().Msgf("Response Status: %s \n Reponse Message: %s", response.Status, decodedBody.IpAddress)
 
-	harbor.Haven.Flagship = &types.Flagship{
-		Escort: types.Escort{
-			IpAddress:      net.ParseIP(decodedBody.IpAddress),
-			RtspEgressPort: 0,
-			Latitude:       0,
-			Longitude:      0,
-		},
-		SrtIngestPort: decodedBody.SrtPort,
+	flagshipEscort := types.Escort{
+		IpAddress:      net.ParseIP(decodedBody.IpAddress),
+		RtspEgressPort: 0,
+		Latitude:       0,
+		Longitude:      0,
 	}
-	harbor.Haven.IsServer = false
+	harbor.MakeHaven(flagshipEscort, decodedBody.SrtPort, "")
 
 	return nil
 }
