@@ -100,6 +100,7 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse response to json string", http.StatusInternalServerError)
 		return
 	}
+	logger.HavenLogger.Debug().Msgf("Sending approval response with body: %s", responseJson)
 
 	encrypt, err := Encrypt(responseJson)
 	if err != nil {

@@ -55,7 +55,8 @@ func RegisterEscortWithHaven(escort *types.Escort, flagshipIp net.IP, flagshipAp
 	}
 
 	flagshipEscort := types.Escort{
-		IpAddress:      net.ParseIP(decodedBody.BackEndIp),
+		IpAddress:      net.ParseIP(decodedBody.IpAddress),
+		BackEndIP:      net.ParseIP(decodedBody.BackEndIp),
 		RtspEgressPort: 0,
 		Latitude:       0,
 		Longitude:      0,
