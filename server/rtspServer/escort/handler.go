@@ -8,7 +8,7 @@ import (
 
 var ServerHandler *EscortHandler
 
-func InitRtspServer(rtspPortInt int) *EscortHandler {
+func InitRtspServer(rtspPortInt int, streamkey string) *EscortHandler {
 	rtspPort := ":" + strconv.Itoa(rtspPortInt)
 
 	ServerHandler := &EscortHandler{}
@@ -21,6 +21,7 @@ func InitRtspServer(rtspPortInt int) *EscortHandler {
 		DisableRTCPSenderReports: false,
 		Handler:                  ServerHandler,
 	}
+	ServerHandler.Streamkey = streamkey
 
 	return ServerHandler
 }

@@ -8,7 +8,7 @@ import (
 
 var ServerHandler *FlagshipHandler
 
-func InitRtspServer(rtspPortInt int) *FlagshipHandler {
+func InitRtspServer(rtspPortInt int, streamkey string) *FlagshipHandler {
 	rtspPort := ":" + strconv.Itoa(rtspPortInt)
 
 	ServerHandler := &FlagshipHandler{}
@@ -21,6 +21,7 @@ func InitRtspServer(rtspPortInt int) *FlagshipHandler {
 		DisableRTCPSenderReports: false,
 		Handler:                  ServerHandler,
 	}
+	ServerHandler.Streamkey = streamkey
 
 	return ServerHandler
 }

@@ -136,14 +136,14 @@ func main() {
 
 	// Start the RTSP server
 	if !config.IsFlagship {
-		rtspEscort.ServerHandler = rtspEscort.InitRtspServer(config.RtspPort)
+		rtspEscort.ServerHandler = rtspEscort.InitRtspServer(config.RtspPort, string(config.Passphrase))
 
 		go func() {
 			errChan <- rtspEscort.ServerHandler.Server.StartAndWait()
 		}()
 		logger.HavenLogger.Info().Msgf("Started RTSP server as Escort on %d", config.RtspPort)
 	} else {
-		rtspFlagship.ServerHandler = rtspFlagship.InitRtspServer(config.RtspPort)
+		rtspFlagship.ServerHandler = rtspFlagship.InitRtspServer(config.RtspPort, string(config.Passphrase))
 
 		go func() {
 			errChan <- rtspFlagship.ServerHandler.Server.StartAndWait()
