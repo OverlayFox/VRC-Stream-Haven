@@ -104,13 +104,13 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 					escort.IpAddress.String(), readers.CurrentViewers, readers.MaxAllowedViewers)
 				continue
 			}
-			logger.HavenLogger.Info().Msgf("Redirecting to %s", escort.IpAddress.String())
+			logger.HavenLogger.Info().Msgf("Redirecting to %s", escort.BackEndIP.String())
 
 			resultChan <- ResponseStream{
 				Response: &base.Response{
 					StatusCode: base.StatusMovedPermanently,
 					Header: base.Header{
-						"Location": base.HeaderValue{"rtsp://" + escort.IpAddress.String() + ":" + strconv.FormatUint(uint64(escort.RtspEgressPort), 10)},
+						"Location": base.HeaderValue{"rtsp://" + escort.BackEndIP.String() + ":" + strconv.FormatUint(uint64(escort.RtspEgressPort), 10)},
 					},
 				},
 				Stream: nil,

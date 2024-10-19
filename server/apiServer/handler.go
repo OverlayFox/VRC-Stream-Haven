@@ -81,7 +81,7 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = harbor.Haven.RemoveEscort(escort.IpAddress)
+	err = harbor.Haven.RemoveEscort(escort.BackEndIP)
 	if err == nil {
 		logger.HavenLogger.Warn().Msgf("Escort %s already exists, removing it", escort.IpAddress)
 	}
@@ -91,6 +91,7 @@ func RegisterEscortToHaven(w http.ResponseWriter, r *http.Request) {
 
 	response := register.Response{
 		IpAddress: harbor.Haven.Flagship.IpAddress.String(),
+		BackEndIp: harbor.Haven.Flagship.BackEndIP.String(),
 		SrtPort:   harbor.Haven.Flagship.SrtIngestPort,
 	}
 

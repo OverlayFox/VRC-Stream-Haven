@@ -6,6 +6,7 @@ import (
 
 type Body struct {
 	IpAddress      string  `yaml:"ipAddress"`
+	BackEndIp      string  `yaml:"backEndIP"`
 	RtspEgressPort uint16  `yaml:"rtspEgressPort"`
 	Latitude       float64 `yaml:"lat"`
 	Longitude      float64 `yaml:"lon"`

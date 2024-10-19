@@ -2,6 +2,7 @@ package harbor
 
 import (
 	"github.com/OverlayFox/VRC-Stream-Haven/types"
+	"net"
 )
 
 var Haven *types.Haven
@@ -25,7 +26,7 @@ func MakeHaven(escort types.Escort, srtPort uint16, passpharse string) *types.Ha
 }
 
 // MakeEscort creates a types.Escort with the public IP Address of the server that initialised the MakeEscort function.
-func MakeEscort(rtspEgressPort, apiPort uint16) (*types.Escort, error) {
+func MakeEscort(rtspEgressPort, apiPort uint16, backendIp net.IP) (*types.Escort, error) {
 	ip, err := GetPublicIpAddress()
 	if err != nil {
 		return &types.Escort{}, err
@@ -33,6 +34,7 @@ func MakeEscort(rtspEgressPort, apiPort uint16) (*types.Escort, error) {
 
 	return &types.Escort{
 		IpAddress:      ip.IpAddress,
+		BackEndIP:      backendIp,
 		RtspEgressPort: rtspEgressPort,
 		Latitude:       ip.Latitude,
 		Longitude:      ip.Longitude,

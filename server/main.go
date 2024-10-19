@@ -30,6 +30,7 @@ type Config struct {
 	RtspPort        int
 	SrtPort         int
 	FlagshipIp      net.IP
+	BackendIp       net.IP
 	FlagshipApiPort int
 }
 
@@ -45,6 +46,7 @@ func init() {
 		SrtPort:         getEnvInt("SRT_PORT", 8554, 1, 65535),
 		FlagshipIp:      getEnvIP("FLAGSHIP_IP"),
 		FlagshipApiPort: getEnvInt("FLAGSHIP_API_PORT", 8080, 1, 65535),
+		BackendIp:       getEnvIP("BACKEND_IP"),
 	}
 
 	if config.FlagshipIp == nil {
@@ -116,7 +118,7 @@ func main() {
 	}()
 
 	// Generate a escort node
-	node, err := harbor.MakeEscort(uint16(config.RtspPort), uint16(config.ApiPort))
+	node, err := harbor.MakeEscort(uint16(config.RtspPort), uint16(config.ApiPort), config.BackendIp)
 	if err != nil {
 		logger.HavenLogger.Fatal().Err(err).Msg("Failed to build Escort from local machine")
 	}

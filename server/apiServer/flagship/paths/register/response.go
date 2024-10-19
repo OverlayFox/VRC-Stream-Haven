@@ -4,6 +4,7 @@ import "encoding/json"
 
 type Response struct {
 	IpAddress string `json:"ipAddress"`
+	BackEndIp string `json:"backEndIP"`
 	SrtPort   uint16 `json:"port"`
 }
 
