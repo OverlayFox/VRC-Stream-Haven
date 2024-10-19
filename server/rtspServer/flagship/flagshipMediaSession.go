@@ -2,6 +2,7 @@ package flagship
 
 import (
 	"context"
+	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/apiService/flagship"
 	"github.com/OverlayFox/VRC-Stream-Haven/geoLocator"
 	"github.com/OverlayFox/VRC-Stream-Haven/harbor"
@@ -28,6 +29,12 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 
 	fh.Mutex.Lock()
 	defer fh.Mutex.Unlock()
+
+	if ctx.Path != fmt.Sprintf("/%s", fh.Streamkey) {
+		return &base.Response{
+			StatusCode: base.StatusConnectionCredentialsNotAccepted,
+		}, nil, nil
+	}
 
 	if fh.Stream == nil {
 		return &base.Response{

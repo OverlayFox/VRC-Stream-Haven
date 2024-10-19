@@ -1,6 +1,7 @@
 package rtspServer
 
 import (
+	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/logger"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
@@ -15,6 +16,7 @@ type Handler struct {
 	Stream    *gortsplib.ServerStream
 	Publisher *gortsplib.ServerSession
 	Mutex     sync.Mutex
+	Streamkey string
 }
 
 func (rh *Handler) OnConnectionOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
@@ -34,6 +36,12 @@ func (rh *Handler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.
 
 	rh.Mutex.Lock()
 	defer rh.Mutex.Unlock()
+
+	if ctx.Path != fmt.Sprintf("/%s", rh.Streamkey) {
+		return &base.Response{
+			StatusCode: base.StatusConnectionCredentialsNotAccepted,
+		}, nil
+	}
 
 	if rh.Stream != nil {
 		rh.Stream.Close()
