@@ -60,6 +60,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 				},
 				Stream: fh.Stream,
 			}
+			return
 		}
 
 		closestEscorts := harbor.Haven.GetClosestEscort(city)
@@ -71,6 +72,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 				},
 				Stream: fh.Stream,
 			}
+			return
 		}
 
 		for _, escort := range closestEscorts {
@@ -96,6 +98,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 					},
 					Stream: fh.Stream,
 				}
+				return
 			}
 
 			if readers.MaxAllowedViewers < 0 && readers.CurrentViewers >= readers.MaxAllowedViewers {
@@ -115,6 +118,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 				},
 				Stream: nil,
 			}
+			return
 		}
 
 		resultChan <- ResponseStream{
@@ -123,6 +127,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 			},
 			Stream: fh.Stream,
 		}
+		return
 	}()
 
 	select {

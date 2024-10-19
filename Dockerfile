@@ -55,9 +55,9 @@ ENV MEDIA_MTX_CONFIG_PATH="/etc/haven/mediamtx.yml"
 ENV PASSPHRASE="helloworldhowareyou"
 ENV RTSP_PORT=8554
 ENV API_PORT=8080
-ENV FLAGSHIP_IP=""
+ENV FLAGSHIP_IP="10.42.156.11"
 ENV FLAGSHIP_API_PORT=8080
-ENV BACKEND_IP="10.42.156.11"
+ENV BACKEND_IP="10.42.156.14"
 
 #
 # mandatory envs only used when server is running as the flagship

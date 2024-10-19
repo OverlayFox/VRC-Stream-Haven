@@ -27,6 +27,7 @@ func (h *Haven) GetClosestEscort(city *geoip2.City) []*Escort {
 		if err != nil {
 			flagship := &Escort{
 				IpAddress:      h.Flagship.IpAddress,
+				BackEndIP:      h.Flagship.BackEndIP,
 				RtspEgressPort: h.Flagship.RtspEgressPort,
 				Latitude:       h.Flagship.Latitude,
 				Longitude:      h.Flagship.Longitude,
