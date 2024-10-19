@@ -68,7 +68,7 @@ func (h *Haven) AddEscort(newEscort *Escort) {
 
 func (h *Haven) RemoveEscort(ip net.IP) error {
 	for i, escort := range *h.Escorts {
-		if ip.Equal(escort.BackEndIP) {
+		if ip.Equal(escort.IpAddress) {
 			*h.Escorts = append((*h.Escorts)[:i], (*h.Escorts)[i+1:]...)
 			return nil
 		}

@@ -79,17 +79,17 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 			}
 
 			if !flagship.IsApiOnline(escort) {
-				logger.HavenLogger.Warn().Msgf("Escort %s is not reachable. Removing from Haven", escort.IpAddress.String())
+				logger.HavenLogger.Warn().Msgf("Escort %s is not reachable. Removing from Haven", escort.BackEndIP.String())
 				err := harbor.Haven.RemoveEscort(escort.IpAddress)
 				if err != nil {
-					logger.HavenLogger.Warn().Err(err).Msgf("Failed to remove escort %s from Haven", escort.IpAddress.String())
+					logger.HavenLogger.Warn().Err(err).Msgf("Failed to remove escort %s from Haven", escort.BackEndIP.String())
 				}
 				continue
 			}
 
 			readers, err := flagship.GetEscortReaders(escort)
 			if err != nil {
-				logger.HavenLogger.Error().Err(err).Msgf("Failed to get readers for escort %s", escort.IpAddress.String())
+				logger.HavenLogger.Error().Err(err).Msgf("Failed to get readers for escort %s", escort.BackEndIP.String())
 				resultChan <- ResponseStream{
 					Response: &base.Response{
 						StatusCode: base.StatusOK,
@@ -104,13 +104,13 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 					escort.IpAddress.String(), readers.CurrentViewers, readers.MaxAllowedViewers)
 				continue
 			}
-			logger.HavenLogger.Info().Msgf("Redirecting to %s", escort.BackEndIP.String())
+			logger.HavenLogger.Info().Msgf("Redirecting to %s", escort.IpAddress.String())
 
 			resultChan <- ResponseStream{
 				Response: &base.Response{
 					StatusCode: base.StatusMovedPermanently,
 					Header: base.Header{
-						"Location": base.HeaderValue{"rtsp://" + escort.BackEndIP.String() + ":" + strconv.FormatUint(uint64(escort.RtspEgressPort), 10)},
+						"Location": base.HeaderValue{"rtsp://" + escort.IpAddress.String() + ":" + strconv.FormatUint(uint64(escort.RtspEgressPort), 10)},
 					},
 				},
 				Stream: nil,

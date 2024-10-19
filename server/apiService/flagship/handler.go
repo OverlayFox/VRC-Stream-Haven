@@ -13,8 +13,8 @@ import (
 )
 
 func IsApiOnline(escort *types.Escort) bool {
-	url := fmt.Sprintf("http://%s:%d/escort/info", escort.IpAddress.String(), escort.ApiPort)
-	logger.HavenLogger.Debug().Msgf("Checking if Escort %s is online on port %d", escort.IpAddress.String(), escort.ApiPort)
+	url := fmt.Sprintf("http://%s:%d/escort/info", escort.BackEndIP.String(), escort.ApiPort)
+	logger.HavenLogger.Debug().Msgf("Checking if Escort %s is online on port %d", escort.BackEndIP.String(), escort.ApiPort)
 
 	client := http.Client{
 		Timeout: 2 * time.Second,
@@ -26,13 +26,13 @@ func IsApiOnline(escort *types.Escort) bool {
 	}
 	defer resp.Body.Close()
 
-	logger.HavenLogger.Debug().Msgf("Escort %s is currently: %d", escort.IpAddress.String(), resp.StatusCode)
+	logger.HavenLogger.Debug().Msgf("Escort %s is currently: %d", escort.BackEndIP.String(), resp.StatusCode)
 
 	return resp.StatusCode == http.StatusOK
 }
 
 func GetEscortReaders(escort *types.Escort) (info.Response, error) {
-	url := fmt.Sprintf("http://%s:%d/escort/info", escort.IpAddress, escort.ApiPort)
+	url := fmt.Sprintf("http://%s:%d/escort/info", escort.BackEndIP, escort.ApiPort)
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
