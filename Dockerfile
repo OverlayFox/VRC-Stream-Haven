@@ -4,11 +4,11 @@ RUN apt-get update
 
 WORKDIR /server
 
-COPY server/go.mod server/go.sum ./
+COPY src/go.mod server/go.sum ./
 
 RUN go mod download
 
-COPY server/ .
+COPY src/ .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o myapp
 
@@ -60,20 +60,20 @@ ENV FLAGSHIP_API_PORT=8080
 ENV BACKEND_IP="10.42.156.14"
 
 #
-# mandatory envs only used when server is running as the flagship
+# mandatory envs only used when src is running as the flagship
 ENV SRT_PORT=8890
 
 #
-# mandatory envs only used when server is running as the escort
+# mandatory envs only used when src is running as the escort
 ENV MAX_VIEWERS=0
 
 #
 # copy files
-COPY --from=builder /server/myapp /etc/haven/server_binary
+COPY --from=builder /src/myapp /etc/haven/server_binary
 COPY supervisord.conf /etc/haven/supervisord.conf
 #COPY mediamtx.yml $MEDIA_MTX_CONFIG_PATH
 COPY --from=bluenviron/mediamtx:latest /mediamtx /usr/bin/mediamtx
-COPY server/geoLocator/GeoLite2-City.mmdb /etc/haven/GeoLite2-City.mmdb
+COPY src/shared/geoLocator/GeoLite2-City.mmdb /etc/haven/GeoLite2-City.mmdb
 
 #
 # expose ports
