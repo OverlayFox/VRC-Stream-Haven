@@ -11,7 +11,7 @@ import (
 )
 
 type EscortHandler struct {
-	rtspServer.Handler
+	rtspServer.RtspMediaSession
 }
 
 // GetReaders gets the readers map from a Stream instance using reflection.

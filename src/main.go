@@ -2,125 +2,83 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/OverlayFox/VRC-Stream-Haven/depreciated"
 	"github.com/OverlayFox/VRC-Stream-Haven/escort/apiServer"
+	escortApi "github.com/OverlayFox/VRC-Stream-Haven/escort/apiServer"
 	rtspEscort "github.com/OverlayFox/VRC-Stream-Haven/escort/rtspServer"
+	flagshipApi "github.com/OverlayFox/VRC-Stream-Haven/flagship/apiServer"
 	rtspFlagship "github.com/OverlayFox/VRC-Stream-Haven/flagship/rtspServer"
-	apiServer2 "github.com/OverlayFox/VRC-Stream-Haven/shared/apiServer"
-	"github.com/OverlayFox/VRC-Stream-Haven/shared/crypto"
+	"github.com/OverlayFox/VRC-Stream-Haven/shared/config"
 	"github.com/OverlayFox/VRC-Stream-Haven/shared/geoLocator"
 	"github.com/OverlayFox/VRC-Stream-Haven/shared/logger"
-	"github.com/gorilla/mux"
+	"github.com/OverlayFox/VRC-Stream-Haven/shared/overseer"
 	"github.com/oschwald/geoip2-golang"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 )
 
-type Config struct {
-	IsFlagship      bool
-	Passphrase      []byte
-	ApiPort         int
-	RtspPort        int
-	SrtPort         int
-	FlagshipIp      net.IP
-	BackendIp       net.IP
-	FlagshipApiPort int
-}
-
-var config Config
-
-func init() {
-	logger.InitLogger()
-
-	config = Config{
-		Passphrase:      getEnvPassphrase("PASSPHRASE", 10),
-		ApiPort:         getEnvInt("API_PORT", 8080, 1, 65535),
-		RtspPort:        getEnvInt("RTSP_PORT", 554, 1, 65535),
-		SrtPort:         getEnvInt("SRT_PORT", 8554, 1, 65535),
-		FlagshipIp:      getEnvIP("FLAGSHIP_IP"),
-		FlagshipApiPort: getEnvInt("FLAGSHIP_API_PORT", 8080, 1, 65535),
-		BackendIp:       getEnvIP("BACKEND_IP"),
+func main() {
+	cfg := logger.Config{
+		LogFilePath: "logs/app.log",
+		LogLevel:    logger.InfoLevel,
+		AppVersion:  os.Getenv("APP_VERSION"),
+		Environment: "production",
+		UseConsole:  true,
+		UseJSON:     false,
 	}
 
-	if config.FlagshipIp == nil {
-		config.IsFlagship = true
+	if err := logger.Init(cfg); err != nil {
+		panic(err)
+	}
+	defer logger.Shutdown()
+
+	log := logger.Get()
+	log.Info().Msg("Initialised Logger")
+
+	conf, err := config.CreateConfigFromEnv()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create config from env")
+	} else {
+		log.Info().Msg("Created config from env")
 	}
 
-	var err error
 	geoLocator.GeoDatabase, err = geoip2.Open("./GeoLite2-City.mmdb")
 	if err != nil {
-		logger.HavenLogger.Fatal().Err(err).Msg("Failed to open GeoLite2-City.mmdb")
-	}
-
-	crypto.Key = config.Passphrase
-
-	logger.HavenLogger.Info().Msg("User configuration loaded successfully")
-}
-
-func getEnvPassphrase(key string, minLength int) []byte {
-	value := os.Getenv(key)
-	if len(value) < minLength {
-		logger.HavenLogger.Fatal().Msgf("%s not set or shorter than %d characters.", key, minLength)
-	}
-	return []byte(value)
-}
-
-func getEnvInt(key string, defaultValue, min, max int) int {
-	valueStr := os.Getenv(key)
-	if valueStr == "" {
-		return defaultValue
-	}
-	value, err := strconv.Atoi(valueStr)
-	if err != nil || value < min || value > max {
-		logger.HavenLogger.Warn().Msgf("%s was set to an invalid value, defaulting to %d", key, defaultValue)
-		return defaultValue
-	}
-	return value
-}
-
-func getEnvIP(key string) net.IP {
-	value := os.Getenv(key)
-	if value == "" {
-		return nil
-	}
-	return net.ParseIP(value)
-}
-
-func main() {
-	var errChan = make(chan error, 1)
-
-	// Start the API src
-	var router *mux.Router
-	if config.IsFlagship {
-		router = apiServer2.InitFlagshipApi()
-		logger.HavenLogger.Info().Msgf("Started API src as Flagship on %d", config.ApiPort)
+		log.Fatal().Err(err).Msg("Failed to load GeoLite2-City.mmdb")
 	} else {
-		router = apiServer2.InitEscortApi()
-		logger.HavenLogger.Info().Msgf("Started API src as Escort on %d", config.ApiPort)
+		log.Info().Msg("Loaded GeoLite2-City.mmdb")
 	}
 
-	apiSrv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", config.ApiPort),
-		Handler: router,
-	}
-
-	go func() {
-		if err := apiSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errChan <- err
-		}
-	}()
-
-	// Generate a escort node
-	node, err := depreciated.MakeEscort(uint16(config.RtspPort), uint16(config.ApiPort), config.BackendIp)
+	node := overseer.MakeEscort(uint16(conf.RtspPort), uint16(conf.ApiPort))
 	if err != nil {
-		logger.HavenLogger.Fatal().Err(err).Msg("Failed to build Escort from local machine")
+		log.Fatal().Err(err).Msg("Failed to build Escort from local machine")
+	}
+
+	var errChan = make(chan error, 1)
+	apiLog := logger.Named("apiServer")
+	if conf.IsFlagship {
+		var server = flagshipApi.NewFlagshipApiServer(apiLog, conf.Passphrase, nil)
+
+		go func() {
+			if err := server.Start(fmt.Sprintf(":%d", conf.ApiPort)); err != nil {
+				errChan <- err
+			}
+		}()
+
+		log.Info().Msgf("Started API server as Flagship on port %d", conf.ApiPort)
+	} else {
+		var server = escortApi.NewEscortApiServer(apiLog, conf.Passphrase)
+
+		go func() {
+			if err := server.Start(fmt.Sprintf(":%d", conf.ApiPort)); err != nil {
+				errChan <- err
+			}
+		}()
+
+		log.Info().Msgf("Started API server as Escort on port %d", conf.ApiPort)
 	}
 
 	// Register the local machine with the flagship if the local machine is not the flagship

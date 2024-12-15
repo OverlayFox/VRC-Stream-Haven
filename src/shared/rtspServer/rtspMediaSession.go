@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-type Handler struct {
+type RtspMediaSession struct {
 	Server    *gortsplib.Server
 	Stream    *gortsplib.ServerStream
 	Publisher *gortsplib.ServerSession
@@ -19,19 +19,19 @@ type Handler struct {
 	Streamkey string
 }
 
-func (rh *Handler) OnConnectionOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
+func (rh *RtspMediaSession) OnConnectionOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	logger.HavenLogger.Info().Msg("Connection Opened")
 }
 
-func (rh *Handler) OnConnectionClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
+func (rh *RtspMediaSession) OnConnectionClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	logger.HavenLogger.Info().Msg("Connection Closed")
 }
 
-func (rh *Handler) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
+func (rh *RtspMediaSession) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
 	logger.HavenLogger.Info().Msg("Session opened")
 }
 
-func (rh *Handler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
+func (rh *RtspMediaSession) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
 	logger.HavenLogger.Info().Msg("Announce Request")
 
 	rh.Mutex.Lock()
@@ -56,7 +56,7 @@ func (rh *Handler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.
 	}, nil
 }
 
-func (rh *Handler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+func (rh *RtspMediaSession) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	logger.HavenLogger.Info().Msg("Setup Request")
 
 	if rh.Stream == nil {
@@ -70,7 +70,7 @@ func (rh *Handler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Respon
 	}, rh.Stream, nil
 }
 
-func (rh *Handler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
+func (rh *RtspMediaSession) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	logger.HavenLogger.Info().Msg("Record Request")
 
 	ctx.Session.OnPacketRTPAny(func(media *description.Media, format format.Format, packet *rtp.Packet) {
@@ -82,7 +82,7 @@ func (rh *Handler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Resp
 	}, nil
 }
 
-func (rh *Handler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+func (rh *RtspMediaSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 	logger.HavenLogger.Info().Msg("Play Request")
 
 	if rh.Stream != nil {
@@ -96,7 +96,7 @@ func (rh *Handler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response
 	}, nil
 }
 
-func (rh *Handler) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
+func (rh *RtspMediaSession) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
 	logger.HavenLogger.Info().Msg("Session closed")
 
 	rh.Mutex.Lock()

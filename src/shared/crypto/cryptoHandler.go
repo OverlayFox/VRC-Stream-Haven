@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-var Key []byte
-
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 // GenerateKey Generates a random key
@@ -26,14 +24,14 @@ func GenerateKey() string {
 	return string(key)
 }
 
-func deriveSHA256Key() []byte {
-	hash := sha256.Sum256(Key)
+func deriveSHA256Key(key []byte) []byte {
+	hash := sha256.Sum256(key)
 	return hash[:]
 }
 
 // Encrypt encrypts a plaintext with a passphrase and return a base64 encoded string
-func Encrypt(plainText string) (string, error) {
-	block, err := aes.NewCipher(deriveSHA256Key())
+func Encrypt(plainText string, key []byte) (string, error) {
+	block, err := aes.NewCipher(deriveSHA256Key(key))
 	if err != nil {
 		return "", err
 	}
@@ -50,13 +48,13 @@ func Encrypt(plainText string) (string, error) {
 }
 
 // Decrypt decrypts a base64 encoded string with a passphrase and return the plaintext
-func Decrypt(encryptedText string) (string, error) {
+func Decrypt(encryptedText string, key []byte) (string, error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedText)
 	if err != nil {
 		return "", err
 	}
 
-	block, err := aes.NewCipher(deriveSHA256Key())
+	block, err := aes.NewCipher(deriveSHA256Key(key))
 	if err != nil {
 		return "", err
 	}

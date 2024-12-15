@@ -19,10 +19,9 @@ type Escort struct {
 }
 
 // MakeEscort creates an Escort
-func MakeEscort(rtspEgressPort, apiPort uint16, rtspIp, backendIp net.IP) *Escort {
+func MakeEscort(rtspEgressPort, apiPort uint16, rtspIp net.IP) *Escort {
 	return &Escort{
 		IpAddress:      rtspIp,
-		BackEndIP:      backendIp,
 		RtspEgressPort: rtspEgressPort,
 		Latitude:       rtspIp.Latitude,
 		Longitude:      rtspIp.Longitude,

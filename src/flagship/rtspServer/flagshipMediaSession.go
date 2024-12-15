@@ -16,7 +16,7 @@ import (
 )
 
 type FlagshipHandler struct {
-	rtspServer.Handler
+	rtspServer.RtspMediaSession
 }
 
 type ResponseStream struct {
