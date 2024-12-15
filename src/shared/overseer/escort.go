@@ -3,6 +3,7 @@ package overseer
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/OverlayFox/VRC-Stream-Haven/shared/geoLocator"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/oschwald/geoip2-golang"
 	"net"
@@ -19,12 +20,12 @@ type Escort struct {
 }
 
 // MakeEscort creates an Escort
-func MakeEscort(rtspEgressPort, apiPort uint16, rtspIp net.IP) *Escort {
+func MakeEscort(rtspEgressPort, apiPort uint16, location geoLocator.PublicLocation) *Escort {
 	return &Escort{
-		IpAddress:      rtspIp,
+		IpAddress:      location.IpAddress,
 		RtspEgressPort: rtspEgressPort,
-		Latitude:       rtspIp.Latitude,
-		Longitude:      rtspIp.Longitude,
+		Latitude:       location.Latitude,
+		Longitude:      location.Longitude,
 		ApiPort:        apiPort,
 	}
 }

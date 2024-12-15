@@ -6,14 +6,14 @@ import (
 	"net"
 )
 
-type IpApi struct {
+type PublicLocation struct {
 	Latitude  float64 `json:"lat"`
 	Longitude float64 `json:"lon"`
 	IpAddress net.IP  `json:"query"`
 }
 
-func (ip *IpApi) UnmarshalJSON(data []byte) error {
-	type Alias IpApi
+func (ip *PublicLocation) UnmarshalJSON(data []byte) error {
+	type Alias PublicLocation
 	aux := &struct {
 		IpAddress string `json:"query"`
 		*Alias

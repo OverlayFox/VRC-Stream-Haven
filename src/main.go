@@ -52,7 +52,12 @@ func main() {
 		log.Info().Msg("Loaded GeoLite2-City.mmdb")
 	}
 
-	node := overseer.MakeEscort(uint16(conf.RtspPort), uint16(conf.ApiPort))
+	currentLocation, err := geoLocator.GetCurrentPublicLocation()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to get current public location")
+	}
+
+	escort := overseer.MakeEscort(uint16(conf.RtspPort), uint16(conf.ApiPort), currentLocation)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to build Escort from local machine")
 	}

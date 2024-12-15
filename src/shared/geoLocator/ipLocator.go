@@ -33,18 +33,18 @@ func GetIpLocation(ipAddress string) (*geoip2.City, error) {
 }
 
 // GetCurrentPublicLocation Gets the Public IP Address of the Server running this function.
-func GetCurrentPublicLocation() (IpApi, error) {
+func GetCurrentPublicLocation() (PublicLocation, error) {
 	response, err := http.Get("http://ip-api.com/json")
 	if err != nil {
 		logger.HavenLogger.Error().Err(err).Msg("IP-API is not reachable.")
-		return IpApi{}, err
+		return PublicLocation{}, err
 	}
 
-	var body IpApi
+	var body PublicLocation
 	err = json.NewDecoder(response.Body).Decode(&body)
 	if err != nil {
 		logger.HavenLogger.Error().Err(err).Msg("Could not decode IP-API response.")
-		return IpApi{}, err
+		return PublicLocation{}, err
 	}
 
 	return body, nil
