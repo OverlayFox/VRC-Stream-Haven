@@ -1,4 +1,4 @@
-package types
+package overseer
 
 import (
 	"encoding/json"
@@ -16,6 +16,18 @@ type Escort struct {
 	ApiPort        uint16  `yaml:"apiPort"`
 	Latitude       float64 `yaml:"lat"`
 	Longitude      float64 `yaml:"lon"`
+}
+
+// MakeEscort creates an Escort
+func MakeEscort(rtspEgressPort, apiPort uint16, rtspIp, backendIp net.IP) *Escort {
+	return &Escort{
+		IpAddress:      rtspIp,
+		BackEndIP:      backendIp,
+		RtspEgressPort: rtspEgressPort,
+		Latitude:       rtspIp.Latitude,
+		Longitude:      rtspIp.Longitude,
+		ApiPort:        apiPort,
+	}
 }
 
 func (e *Escort) MarshalJSON() ([]byte, error) {

@@ -8,18 +8,32 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	mathRand "math/rand"
+	"time"
 )
 
 var Key []byte
 
-func deriveKey() []byte {
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+// GenerateKey Generates a random key
+func GenerateKey() string {
+	seededRand := mathRand.New(mathRand.NewSource(time.Now().UnixNano()))
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(key)
+}
+
+func deriveSHA256Key() []byte {
 	hash := sha256.Sum256(Key)
 	return hash[:]
 }
 
 // Encrypt encrypts a plaintext with a passphrase and return a base64 encoded string
 func Encrypt(plainText string) (string, error) {
-	block, err := aes.NewCipher(deriveKey())
+	block, err := aes.NewCipher(deriveSHA256Key())
 	if err != nil {
 		return "", err
 	}
@@ -42,7 +56,7 @@ func Decrypt(encryptedText string) (string, error) {
 		return "", err
 	}
 
-	block, err := aes.NewCipher(deriveKey())
+	block, err := aes.NewCipher(deriveSHA256Key())
 	if err != nil {
 		return "", err
 	}

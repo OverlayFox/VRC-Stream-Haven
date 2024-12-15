@@ -1,4 +1,4 @@
-package types
+package overseer
 
 import (
 	"fmt"
@@ -9,8 +9,26 @@ import (
 
 // Haven combines the ServerStruct and NodeStruct information.
 type Haven struct {
-	Escorts  *[]*Escort `yaml:"nodes"`
-	Flagship *Flagship  `yaml:"src"`
+	Escorts  *[]*Escort `yaml:"escorts"`
+	Flagship *Flagship  `yaml:"flagship"`
+}
+
+// MakeHaven is used to create a new Haven with one Escort and one Flagship.
+// The Escort supplied will become the flagship and first possible Escort.
+func MakeHaven(escort Escort, srtPort uint16, passphrase string) *Haven {
+	haven := &Haven{}
+
+	haven.Flagship = &Flagship{
+		Escort:        escort,
+		SrtIngestPort: srtPort,
+		Passphrase:    passphrase,
+	}
+
+	var escorts []*Escort
+	haven.Escorts = &escorts
+	*haven.Escorts = append(*haven.Escorts, &escort)
+
+	return haven
 }
 
 // GetClosestEscort returns a sorted list. The first element is the closest escort to the client.

@@ -50,7 +50,7 @@ func (fh *FlagshipHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx)
 		clientIp := ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 		logger.HavenLogger.Debug().Msgf("Received read request from IP: %s", clientIp.String())
 
-		city, err := geoLocator.LocateIp(clientIp.String())
+		city, err := geoLocator.GetIpLocation(clientIp.String())
 		logger.HavenLogger.Debug().Msgf("Client is located in %s", city.City.Names["en"])
 		if err != nil {
 			logger.HavenLogger.Warn().Err(err).Msg("Failed to locate IP of the client. Redirecting to Flagship")

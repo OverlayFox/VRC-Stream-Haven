@@ -1,4 +1,4 @@
-package types
+package overseer
 
 // Flagship holds all information about the Flagship running the Haven.
 type Flagship struct {
