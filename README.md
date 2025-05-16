@@ -5,6 +5,25 @@ It allows users to join together into a Haven, improving stream stability for an
 
 It is currently still in very early development, pre-Alpha almost, so expect bugs and missing features. </br>
 
+## Requirements
+
+VRC-Stream-Haven uses the IP2Location LITE database for <a href="https://lite.ip2location.com">IP geolocation</a>. <br>
+
+We use this location system to calculate the distance between the Flagship/Escorts and the client that wants to watch the stream. <br>
+The location of each Escort gets saved in RAM and in logs but the location of each viewer is not stored long term.
+
+This database is not provided by default in the repository due to licensing. <br>
+VRC-Stream-Haven will work without this database but for optimisation it is recommended to use it, especially if you're planning on hosting a larger stream with many clients.
+
+Simply create an account on <a href="https://lite.ip2location.com">IP geolocation</a>.<br>
+Then go to https://lite.ip2location.com/database-download and look for your `Download Token`.<br>
+Insert this download token into the `variables.txt` file that is next to your `.exe`.<br>
+Make sure to insert it after `IP2LocationDownloadToken=` <br>
+It should look something like this `IPLocationDownloadToken=XXXXXXXXXXXXX`
+
+That's it!
+Each time you now start VRC-Stream-Haven it will check if there is a newer version of the database and download it.
+
 ## How it works:
 
 One server acts as the main server (Flagship). </br>
@@ -20,15 +39,5 @@ closest to the viewer. </br>
 
 ## Roadmap:
 
-- [x] Implement an API that will let the Escort and Flagship communicate with each other.
-- [x] Add simple content encryption to the API calls.
-- [x] Let each Escort define how many viewers they can handle.
+- [x] PoC
 - [ ] Refactor code base to make it more readable.
-- [ ] Add unittests.
-- [ ] Add leech mode, where a viewer can join the Haven while keeping their RTSP traffic in their LAN.
-- [ ] Implement a FFMPEG daemon that will transcode the SRT signal to RTSP on each escort for less overhead.
-- [ ] Remove MediaMTX and use a self build SRT Server.
-- [ ] Build a release pipeline.
-- [ ] Write a How-To guide for Linux and Windows.
-- [ ] Realtime Metrics about each Escort and about the Flagship.
-- [ ] Add a UI for the Flagship and for each Escort.
