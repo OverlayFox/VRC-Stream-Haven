@@ -2,6 +2,8 @@ package types
 
 import (
 	"net"
+
+	vJson "github.com/OverlayFox/VRC-Stream-Haven/src/types/json"
 )
 
 type Haven interface {
@@ -10,7 +12,7 @@ type Haven interface {
 	GetFlagship() Flagship
 	AddFlagship(MediaSession) error
 
-	AddEscort(MediaSession) error
+	AddEscort(MediaSession, vJson.Announce) error
 
 	GetClosestEscort(net.Addr) (Escort, error)
 

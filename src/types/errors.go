@@ -12,4 +12,6 @@ var (
 
 	ErrEscortNotFound      = fmt.Errorf("escort not found")
 	ErrEscortsNotAvailable = fmt.Errorf("no escorts available")
+
+	ErrInvalidStreamRequestId = fmt.Errorf("invalid stream request id")
 )

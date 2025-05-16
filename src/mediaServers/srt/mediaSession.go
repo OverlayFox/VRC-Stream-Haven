@@ -3,6 +3,7 @@ package srt
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -98,6 +99,10 @@ func (s *MediaSession) GetStats() *srt.Statistics {
 	s.connection.Stats(s.stats)
 
 	return s.stats
+}
+
+func (s *MediaSession) GetRtspPort() (int, error) {
+	return -1, fmt.Errorf("RTSP port is not available for SRT connections")
 }
 
 // close closes the SRT connection and cleans up the media session.

@@ -14,4 +14,6 @@ type MediaSession interface {
 	GetCtx() context.Context
 
 	SignalClose()
+
+	GetRtspPort() (int, error)
 }
