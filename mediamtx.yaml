@@ -24,16 +24,16 @@ writeQueueSize: 512
 # This can be decreased to avoid fragmentation on networks with a low UDP MTU.
 udpMaxPayloadSize: 1472
 
-# Command to run when a client connects to the server.
-# This is terminated with SIGINT when a client disconnects from the server.
+# Command to run when a client connects to the src.
+# This is terminated with SIGINT when a client disconnects from the src.
 # The following environment variables are available:
-# * RTSP_PORT: RTSP server port
+# * RTSP_PORT: RTSP src port
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
 runOnConnect:
 # Restart the command if it exits.
 runOnConnectRestart: no
-# Command to run when a client disconnects from the server.
+# Command to run when a client disconnects from the src.
 # Environment variables are the same of runOnConnect.
 runOnDisconnect:
 
@@ -43,7 +43,7 @@ runOnDisconnect:
 # Authentication method. Available values are:
 # * internal: users are stored in the configuration file
 # * http: an external HTTP URL is contacted to perform authentication
-# * jwt: an external identity server provides authentication through JWTs
+# * jwt: an external identity src provides authentication through JWTs
 authMethod: internal
 
 # Internal authentication.
@@ -82,7 +82,7 @@ authInternalUsers:
 
 # HTTP-based authentication.
 # URL called to perform authentication. Every time a user wants
-# to authenticate, the server calls this URL with the POST method
+# to authenticate, the src calls this URL with the POST method
 # and a body containing:
 # {
 #   "user": "user",
@@ -105,7 +105,7 @@ authHTTPExclude:
   - action: pprof
 
 # JWT-based authentication.
-# Users have to log in through an external identity server and obtain a JWT.
+# Users have to log in through an external identity src and obtain a JWT.
 # This JWT must contain the claim "mediamtx_permissions" with permissions,
 # for instance:
 # {
@@ -127,23 +127,23 @@ authJWTClaimKey: mediamtx_permissions
 ###############################################
 # Global settings -> Control API
 
-# Enable controlling the server through the Control API.
+# Enable controlling the src through the Control API.
 api: no
 # Address of the Control API listener.
 apiAddress: :9997
-# Enable TLS/HTTPS on the Control API server.
+# Enable TLS/HTTPS on the Control API src.
 apiEncryption: no
-# Path to the server key. This is needed only when encryption is yes.
+# Path to the src key. This is needed only when encryption is yes.
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-apiServerKey: server.key
-# Path to the server certificate.
-apiServerCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+apiServerKey: src.key
+# Path to the src certificate.
+apiServerCert: src.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 apiAllowOrigin: '*'
-# List of IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
+# List of IPs or CIDRs of proxies placed before the HTTP src.
+# If the src receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 apiTrustedProxies: []
 
@@ -154,19 +154,19 @@ apiTrustedProxies: []
 metrics: no
 # Address of the metrics HTTP listener.
 metricsAddress: :9998
-# Enable TLS/HTTPS on the Metrics server.
+# Enable TLS/HTTPS on the Metrics src.
 metricsEncryption: no
-# Path to the server key. This is needed only when encryption is yes.
+# Path to the src key. This is needed only when encryption is yes.
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-metricsServerKey: server.key
-# Path to the server certificate.
-metricsServerCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+metricsServerKey: src.key
+# Path to the src certificate.
+metricsServerCert: src.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 metricsAllowOrigin: '*'
-# List of IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
+# List of IPs or CIDRs of proxies placed before the HTTP src.
+# If the src receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 metricsTrustedProxies: []
 
@@ -177,53 +177,53 @@ metricsTrustedProxies: []
 pprof: no
 # Address of the pprof listener.
 pprofAddress: :9999
-# Enable TLS/HTTPS on the pprof server.
+# Enable TLS/HTTPS on the pprof src.
 pprofEncryption: no
-# Path to the server key. This is needed only when encryption is yes.
+# Path to the src key. This is needed only when encryption is yes.
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-pprofServerKey: server.key
-# Path to the server certificate.
-pprofServerCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+pprofServerKey: src.key
+# Path to the src certificate.
+pprofServerCert: src.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 pprofAllowOrigin: '*'
-# List of IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
+# List of IPs or CIDRs of proxies placed before the HTTP src.
+# If the src receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 pprofTrustedProxies: []
 
 ###############################################
-# Global settings -> Playback server
+# Global settings -> Playback src
 
-# Enable downloading recordings from the playback server.
+# Enable downloading recordings from the playback src.
 playback: no
-# Address of the playback server listener.
+# Address of the playback src listener.
 playbackAddress: :9996
-# Enable TLS/HTTPS on the playback server.
+# Enable TLS/HTTPS on the playback src.
 playbackEncryption: no
-# Path to the server key. This is needed only when encryption is yes.
+# Path to the src key. This is needed only when encryption is yes.
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-playbackServerKey: server.key
-# Path to the server certificate.
-playbackServerCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+playbackServerKey: src.key
+# Path to the src certificate.
+playbackServerCert: src.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 playbackAllowOrigin: '*'
-# List of IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
+# List of IPs or CIDRs of proxies placed before the HTTP src.
+# If the src receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 playbackTrustedProxies: []
 
 ###############################################
-# Global settings -> RTSP server
+# Global settings -> RTSP src
 
 # Enable publishing and reading streams with the RTSP protocol.
 rtsp: no
 # List of enabled RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
-# server and clients, and doesn't support encryption.
+# src and clients, and doesn't support encryption.
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.
 # TCP is the most versatile, and does support encryption.
 # The handshake is always performed with TCP.
@@ -245,19 +245,19 @@ multicastIPRange: 224.1.0.0/16
 multicastRTPPort: 8002
 # Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in protocols.
 multicastRTCPPort: 8003
-# Path to the server key. This is needed only when encryption is "strict" or "optional".
+# Path to the src key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-serverKey: server.key
-# Path to the server certificate. This is needed only when encryption is "strict" or "optional".
-serverCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+serverKey: src.key
+# Path to the src certificate. This is needed only when encryption is "strict" or "optional".
+serverCert: src.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
 
 ###############################################
-# Global settings -> RTMP server
+# Global settings -> RTMP src
 
 # Enable publishing and reading streams with the RTMP protocol.
 rtmp: no
@@ -268,36 +268,36 @@ rtmpAddress: :1935
 rtmpEncryption: "no"
 # Address of the RTMPS listener. This is needed only when encryption is "strict" or "optional".
 rtmpsAddress: :1936
-# Path to the server key. This is needed only when encryption is "strict" or "optional".
+# Path to the src key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-rtmpServerKey: server.key
-# Path to the server certificate. This is needed only when encryption is "strict" or "optional".
-rtmpServerCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+rtmpServerKey: src.key
+# Path to the src certificate. This is needed only when encryption is "strict" or "optional".
+rtmpServerCert: src.crt
 
 ###############################################
-# Global settings -> HLS server
+# Global settings -> HLS src
 
 # Enable reading streams with the HLS protocol.
 hls: yes
 # Address of the HLS listener.
 hlsAddress: :8888
-# Enable TLS/HTTPS on the HLS server.
+# Enable TLS/HTTPS on the HLS src.
 # This is required for Low-Latency HLS.
 hlsEncryption: no
-# Path to the server key. This is needed only when encryption is yes.
+# Path to the src key. This is needed only when encryption is yes.
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-hlsServerKey: server.key
-# Path to the server certificate.
-hlsServerCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+hlsServerKey: src.key
+# Path to the src certificate.
+hlsServerCert: src.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.
 hlsAllowOrigin: '*'
-# List of IPs or CIDRs of proxies placed before the HLS server.
-# If the server receives a request from one of these entries, IP in logs
+# List of IPs or CIDRs of proxies placed before the HLS src.
+# If the src receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 hlsTrustedProxies: []
 # By default, HLS is generated only when requested by a user.
@@ -308,14 +308,14 @@ hlsAlwaysRemux: no
 # * fmp4 - uses fragmented MP4 segments, more efficient.
 # * lowLatency - uses Low-Latency HLS.
 hlsVariant: lowLatency
-# Number of HLS segments to keep on the server.
+# Number of HLS segments to keep on the src.
 # Segments allow to seek through the stream.
 # Their number doesn't influence latency.
 hlsSegmentCount: 7
 # Minimum duration of each segment.
 # A player usually puts 3 segments in a buffer before reproducing the stream.
 # The final segment duration is also influenced by the interval between IDR frames,
-# since the server changes the duration in order to include at least one IDR frame
+# since the src changes the duration in order to include at least one IDR frame
 # in each segment.
 hlsSegmentDuration: 1s
 # Minimum duration of each part.
@@ -336,26 +336,26 @@ hlsDirectory: ''
 hlsMuxerCloseAfter: 60s
 
 ###############################################
-# Global settings -> WebRTC server
+# Global settings -> WebRTC src
 
 # Enable publishing and reading streams with the WebRTC protocol.
 webrtc: yes
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
-# Enable TLS/HTTPS on the WebRTC server.
+# Enable TLS/HTTPS on the WebRTC src.
 webrtcEncryption: no
-# Path to the server key.
+# Path to the src key.
 # This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-webrtcServerKey: server.key
-# Path to the server certificate.
-webrtcServerCert: server.crt
+# openssl genrsa -out src.key 2048
+# openssl req -new -x509 -sha256 -key src.key -out src.crt -days 3650
+webrtcServerKey: src.key
+# Path to the src certificate.
+webrtcServerCert: src.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the WebRTC stream from an external website.
 webrtcAllowOrigin: '*'
-# List of IPs or CIDRs of proxies placed before the WebRTC server.
-# If the server receives a request from one of these entries, IP in logs
+# List of IPs or CIDRs of proxies placed before the WebRTC src.
+# If the src receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 webrtcTrustedProxies: []
 # Address of a local UDP listener that will receive connections.
@@ -365,7 +365,7 @@ webrtcLocalUDPAddress: :8189
 # This is disabled by default since TCP is less efficient than UDP and
 # introduces a progressive delay when network is congested.
 webrtcLocalTCPAddress: ''
-# WebRTC clients need to know the IP of the server.
+# WebRTC clients need to know the IP of the src.
 # Gather IPs from interfaces and send them to clients.
 webrtcIPsFromInterfaces: yes
 # List of interfaces whose IPs will be sent to clients.
@@ -374,7 +374,7 @@ webrtcIPsFromInterfacesList: []
 # List of additional hosts or IPs to send to clients.
 webrtcAdditionalHosts: []
 # ICE servers. Needed only when local listeners can't be reached by clients.
-# STUN servers allows to obtain and share the public IP of the server.
+# STUN servers allows to obtain and share the public IP of the src.
 # TURN/TURNS servers forces all traffic through them.
 webrtcICEServers2: []
   # - url: stun:stun.l.google.com:19302
@@ -389,7 +389,7 @@ webrtcHandshakeTimeout: 10s
 webrtcTrackGatherTimeout: 2s
 
 ###############################################
-# Global settings -> SRT server
+# Global settings -> SRT src
 
 # Enable publishing and reading streams with the SRT protocol.
 srt: yes
@@ -408,17 +408,17 @@ pathDefaults:
 
   # Source of the stream. This can be:
   # * publisher -> the stream is provided by a RTSP, RTMP, WebRTC or SRT client
-  # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
-  # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
-  # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
-  # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
-  # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera
-  # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
+  # * rtsp://existing-url -> the stream is pulled from another RTSP src / camera
+  # * rtsps://existing-url -> the stream is pulled from another RTSP src / camera with RTSPS
+  # * rtmp://existing-url -> the stream is pulled from another RTMP src / camera
+  # * rtmps://existing-url -> the stream is pulled from another RTMP src / camera with RTMPS
+  # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS src / camera
+  # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS src / camera with HTTPS
   # * udp://ip:port -> the stream is pulled with UDP, by listening on the specified IP and port
-  # * srt://existing-url -> the stream is pulled from another SRT server / camera
-  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
-  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
-  # * redirect -> the stream is provided by another path or server
+  # * srt://existing-url -> the stream is pulled from another SRT src / camera
+  # * whep://existing-url -> the stream is pulled from another WebRTC src / camera
+  # * wheps://existing-url -> the stream is pulled from another WebRTC src / camera with HTTPS
+  # * redirect -> the stream is provided by another path or src
   # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
   # The following variables can be used in the source string:
   # * $MTX_QUERY: query parameters (passed by first reader)
@@ -428,8 +428,8 @@ pathDefaults:
   # If the source is a URL, and the source certificate is self-signed
   # or invalid, you can provide the fingerprint of the certificate in order to
   # validate it anyway. It can be obtained by running:
-  # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
-  # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+  # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > src.crt
+  # openssl x509 -in src.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
   sourceFingerprint:
   # If the source is a URL, it will be pulled only when at least
   # one reader is connected, saving bandwidth.
@@ -484,7 +484,7 @@ pathDefaults:
 
   # Transport protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
   rtspTransport: automatic
-  # Support sources that don't provide server ports or use random server ports. This is a security issue
+  # Support sources that don't provide src ports or use random src ports. This is a security issue
   # and must be used only when interacting with sources that require it.
   rtspAnyPort: no
   # Range header to send to the source, in order to start streaming from the specified offset.
@@ -598,11 +598,11 @@ pathDefaults:
   # Default path settings -> Hooks
 
   # Command to run when this path is initialized.
-  # This can be used to publish a stream when the server is launched.
+  # This can be used to publish a stream when the src is launched.
   # This is terminated with SIGINT when the program closes.
   # The following environment variables are available:
   # * MTX_PATH: path name
-  # * RTSP_PORT: RTSP server port
+  # * RTSP_PORT: RTSP src port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnInit:
@@ -616,7 +616,7 @@ pathDefaults:
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by first reader)
-  # * RTSP_PORT: RTSP server port
+  # * RTSP_PORT: RTSP src port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnDemand:
@@ -633,12 +633,12 @@ pathDefaults:
   runOnUnDemand:
 
   # Command to run when the stream is ready to be read, whenever it is
-  # published by a client or pulled from a server / camera.
+  # published by a client or pulled from a src / camera.
   # This is terminated with SIGINT when the stream is not ready anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by publisher)
-  # * RTSP_PORT: RTSP server port
+  # * RTSP_PORT: RTSP src port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SOURCE_TYPE: source type
@@ -655,7 +655,7 @@ pathDefaults:
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by reader)
-  # * RTSP_PORT: RTSP server port
+  # * RTSP_PORT: RTSP src port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_READER_TYPE: reader type
@@ -670,7 +670,7 @@ pathDefaults:
   # Command to run when a recording segment is created.
   # The following environment variables are available:
   # * MTX_PATH: path name
-  # * RTSP_PORT: RTSP server port
+  # * RTSP_PORT: RTSP src port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
@@ -679,7 +679,7 @@ pathDefaults:
   # Command to run when a recording segment is complete.
   # The following environment variables are available:
   # * MTX_PATH: path name
-  # * RTSP_PORT: RTSP server port
+  # * RTSP_PORT: RTSP src port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path

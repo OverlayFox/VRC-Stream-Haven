@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: 'VRC Haven Front Facing API'
-  description: 'This API will be used for escort server to communicated with the flagship.'
+  description: 'This API will be used for escort src to communicated with the flagship.'
   version: '0.0.1'
 paths:
   '/auth/login':

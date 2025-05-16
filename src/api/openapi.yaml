@@ -1,0 +1,69 @@
+openapi: 3.0.0
+info:
+  title: Very Reliant Content Haven API
+  version: 0.0.1
+  description: |
+    This is the API documentation for the Very Reliant Content (VRC) Haven. 
+    This API is not intended for public use and only facilitates intercommunication between the Flagship and Escorts.
+paths:
+  /escort/announce:
+    post:
+      summary: Announces a escort to the Haven.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscortAnnounce"
+      responses:
+        "200":
+          description: Successfully announced
+        "401":
+          description: Unauthorized - The client is not allowed to perform this action.
+
+  /escort/describe:
+    post:
+      summary: Describes a escort to the Haven.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscortDescribe"
+      responses:
+        "200":
+          description: Successfully describes
+
+components:
+  schemas:
+    EscortAnnounce:
+      type: object
+      required:
+        - escort_id
+      properties:
+        escort_id:
+          type: string
+          description: The ID of the escort.
+
+    EscortDescribe:
+      type: object
+      required:
+        - escort_id
+        - latitude
+        - longitude
+        - rtsp_port
+      properties:
+        escort_id:
+          type: string
+          description: The ID of the escort.
+        latitude:
+          type: number
+          format: float
+          description: The latitude of the escort's location.
+        longitude:
+          type: number
+          format: float
+          description: The longitude of the escort's location.
+        rtsp_port:
+          type: integer
+          description: The RTSP port of the escort.

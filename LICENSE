@@ -12,11 +12,6 @@ furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-Certain parts of this software fall under different licenses. Those parts are
-not covered by this license. This includes the following parts:
-    - MaxMinds GeoLite2-City Database (CC BY 4.0 License)
-
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,22 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
---------------------------------------------------------
-
-CC BY 4.0 License
-
-Copyright (c) 2024 MaxMind, Inc.
-
-Parts of this code uses MaxMinds GeoLite2-City Database.
-This product is governed by MaxMind's GeoLite2 End User License Agreement,
-which can be viewed at https://www.maxmind.com/en/geolite2/eula.
-
-This database incorporates GeoNames [https://www.geonames.org] geographical data,
-which is made available under the Creative Commons Attribution 4.0 License.
-To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/.
-
-Only the database and its contents are copyrighted by MaxMind, Inc., 2024.
-
-MaxMind Inc. is not affiliated with VRC-Haven and does not endorse it.
-
