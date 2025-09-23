@@ -1,22 +1,29 @@
 package haven
 
 import (
+	"net"
+
 	"github.com/OverlayFox/VRC-Stream-Haven/src/geo"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 type Flagship struct {
-	types.MediaSession
+	types.Connection
 
 	location types.Location
 }
 
-func NewFlagship(srtSession types.MediaSession) (types.Flagship, error) {
+func NewFlagship(srtSession types.Connection) (types.Flagship, error) {
 	flagship := Flagship{
-		MediaSession: srtSession,
+		Connection: srtSession,
 	}
 
-	location, err := geo.GetPublicLocation(srtSession.GetAddr())
+	addr, err := net.ResolveUDPAddr("udp", srtSession.GetIp())
+	if err != nil {
+		return nil, err
+	}
+
+	location, err := geo.GetPublicLocation(addr)
 	if err != nil {
 		return nil, err
 	}

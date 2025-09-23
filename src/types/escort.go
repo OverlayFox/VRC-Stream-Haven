@@ -1,9 +1,6 @@
 package types
 
-import "net"
-
 type Escort interface {
-	MediaSession
+	Connection
 	GetLocation() Location
-	GetAddr() net.Addr
 }

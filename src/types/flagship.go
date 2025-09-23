@@ -1,6 +1,6 @@
 package types
 
 type Flagship interface {
-	MediaSession
+	Connection
 	GetLocation() Location
 }

@@ -45,7 +45,17 @@ func (h *Haven) GetFlagship() types.Flagship {
 	return h.flagship
 }
 
-func (h *Haven) AddFlagship(mediaSession types.MediaSession) error {
+func (h *Haven) TooManyEscorts() bool {
+	count := 0
+	h.escorts.Range(func(_, _ any) bool {
+		count++
+		return true
+	})
+
+	return count >= 10
+}
+
+func (h *Haven) AddFlagship(mediaSession types.Connection) error {
 	if h.flagship != nil {
 		return types.ErrFlagshipAlreadyExists
 	}
@@ -72,7 +82,7 @@ func (h *Haven) AddFlagship(mediaSession types.MediaSession) error {
 	return nil
 }
 
-func (h *Haven) AddEscort(mediaSession types.MediaSession) error {
+func (h *Haven) AddEscort(mediaSession types.Connection) error {
 	if h.flagship == nil {
 		return types.ErrFlagshipNotFound
 	}
@@ -81,14 +91,14 @@ func (h *Haven) AddEscort(mediaSession types.MediaSession) error {
 	if err != nil {
 		return err
 	}
-	h.escorts.Store(escort.GetAddr().String(), escort)
+	h.escorts.Store(escort.GetIp(), escort)
 
 	// Monitor the escort's context and remove it from the map when it is done
 	go func(ctx context.Context, key string) {
 		<-ctx.Done()
 		h.logger.Debug().Msgf("Escort context done, removing escort '%s' from map", key)
 		h.escorts.Delete(key)
-	}(escort.GetCtx(), escort.GetAddr().String())
+	}(escort.GetCtx(), escort.GetIp())
 
 	return nil
 }

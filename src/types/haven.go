@@ -6,15 +6,15 @@ import (
 
 type Haven interface {
 	GetStreamId() string
+	GetPassphrase() string
 
 	GetFlagship() Flagship
-	AddFlagship(MediaSession) error
+	AddFlagship(Connection) error
+	TooManyEscorts() bool
 
-	AddEscort(MediaSession) error
+	AddEscort(Connection) error
 
 	GetClosestEscort(net.Addr) (Escort, error)
-
-	GetPassphrase() string
 
 	GetPacketBuffer() (PacketBuffer, error)
 }
