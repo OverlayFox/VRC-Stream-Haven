@@ -15,7 +15,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type serverHandler struct {
+type Connection struct {
 	logger zerolog.Logger
 
 	server *gortsplib.Server
@@ -30,28 +30,28 @@ type serverHandler struct {
 }
 
 // OnConnOpen is called when a connection is opened.
-func (sh *serverHandler) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
+func (sh *Connection) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	sh.logger.Info().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp connection opened")
 }
 
 // OnConnClose is called when a connection is closed.
-func (sh *serverHandler) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
+func (sh *Connection) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msgf("rtsp connection closed: %v", ctx.Error)
 }
 
 // OnSessionOpen is called when a session is opened.
-func (sh *serverHandler) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
+func (sh *Connection) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
 	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp session opened")
 }
 
 // OnSessionClose is called when a session is closed.
-func (sh *serverHandler) OnSessionClose(_ *gortsplib.ServerHandlerOnSessionCloseCtx) {
+func (sh *Connection) OnSessionClose(_ *gortsplib.ServerHandlerOnSessionCloseCtx) {
 	sh.logger.Debug().Msg("rtsp session closed")
 }
 
 // OnDescribe is called when a describe request is received.
 // This function handles redirections.
-func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+func (sh *Connection) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp describe request")
 
 	sh.mu.RLock()
@@ -86,7 +86,7 @@ func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (
 		}
 
 		if sh.stream == nil {
-			sh.logger.Debug().Msgf("stream does not exist yet for client '%s'", clientIp.String())
+			sh.logger.Info().Msgf("stream does not exist yet for client '%s'", clientIp.String())
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
 			}, nil, nil
@@ -94,17 +94,22 @@ func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (
 
 		escort, err := sh.haven.GetClosestEscort(clientIp)
 		if err != nil {
-			sh.logger.Warn().Msgf("failed to get escort for client '%s': %v. Letting client read directly from flagship", clientIp.String(), err)
+			if err == types.ErrEscortsNotAvailable {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, sh.stream, nil
+			}
+			sh.logger.Error().Err(err).Msgf("failed to get escort for client '%s'", clientIp.String())
 			return &base.Response{
-				StatusCode: base.StatusOK,
-			}, sh.stream, nil
+				StatusCode: base.StatusInternalServerError,
+			}, nil, nil
 		}
 
 		sh.logger.Info().Msgf("redirecting client '%s' to escort '%s'", clientIp.String(), escort.GetIp())
 		return &base.Response{
 			StatusCode: base.StatusMovedPermanently,
 			Header: base.Header{
-				"Location": base.HeaderValue{"rtsp://" + escort.GetIp() + ctx.Path},
+				"Location": base.HeaderValue{"rtsp://" + escort.GetIp().String() + ctx.Path},
 			},
 		}, nil, nil
 	}
@@ -119,12 +124,11 @@ func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (
 	return &base.Response{
 		StatusCode: base.StatusOK,
 	}, sh.stream, nil
-
 }
 
 // OnAnnounce is called when an announce request is received.
 // We don't allow publishers, so we just return not implemented.
-func (sh *serverHandler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
+func (sh *Connection) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
 	sh.logger.Warn().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("client tried to publish data to the stream, which is not supported")
 
 	return &base.Response{
@@ -133,7 +137,7 @@ func (sh *serverHandler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (
 }
 
 // OnSetup is called when a setup request is received.
-func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+func (sh *Connection) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp setup request")
 
 	if sh.stream == nil {
@@ -148,7 +152,7 @@ func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.
 }
 
 // OnPlay is called when a play request is received.
-func (sh *serverHandler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+func (sh *Connection) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 	sh.logger.Info().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp play request")
 
 	if sh.stream != nil {
@@ -164,7 +168,7 @@ func (sh *serverHandler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Re
 
 // OnRecord is only called when receiving a frame from a publisher.
 // We don't allow publishers, so we just return not implemented.
-func (sh *serverHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
+func (sh *Connection) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	sh.logger.Warn().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("client tried to push data to the stream via onRecord, which is not supported")
 
 	return &base.Response{
@@ -172,7 +176,7 @@ func (sh *serverHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*bas
 	}, nil
 }
 
-func (sh *serverHandler) WritePacketRTP(media *description.Media, packet *rtp.Packet) error {
+func (sh *Connection) WritePacketRTP(media *description.Media, packet *rtp.Packet) error {
 	if sh.stream == nil {
 		sh.stream = &gortsplib.ServerStream{
 			Server: sh.server,

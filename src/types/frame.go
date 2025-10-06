@@ -3,13 +3,13 @@ package types
 import (
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/yapingcat/gomedia/go-codec"
 )
 
 type FrameHeader struct {
-	Type description.MediaType
-	Pts  time.Duration // Time since the start of the stream
-	Dts  time.Duration // Time since the start of the stream
+	Cid codec.CodecID
+	Pts time.Duration // Time since the start of the stream
+	Dts time.Duration // Time since the start of the stream
 }
 
 type Frame interface {
@@ -29,4 +29,69 @@ type Frame interface {
 	Len() uint64
 	// IsKeyFrame returns if the frame is a keyframe or not
 	IsKeyFrame() bool
+}
+
+type FrameFormat int
+
+const (
+	FrameFormatUnknown FrameFormat = iota
+	FrameFormatAnnexB
+	FrameFormatAVCC
+)
+
+func (f FrameFormat) String() string {
+	switch f {
+	case FrameFormatAnnexB:
+		return "FrameFormatAnnexB"
+	case FrameFormatAVCC:
+		return "FrameFormatAVCC"
+	default:
+		return "FrameFormatUnknown"
+	}
+}
+
+// FrameHeap implements heap.Interface for types.Frame, ordered by DTS
+type FrameHeap []Frame
+
+// Len returns the number of elements in the heap.
+func (h FrameHeap) Len() int { return len(h) }
+
+// Less compares two frames based on their DTS to ensure min-heap property (smallest DTS at root).
+func (h FrameHeap) Less(i, j int) bool {
+	if h[i].Header().Dts < h[j].Header().Dts {
+		return true
+	} else if h[i].Header().Dts > h[j].Header().Dts {
+		return false
+	}
+
+	// If DTS are equal, prioritize video frames over audio frames
+	isIVideo := h[i].Header().Cid == codec.CODECID_VIDEO_H264
+	isJVideo := h[j].Header().Cid == codec.CODECID_VIDEO_H264
+
+	// If both frames are of the same type, maintain their order based on PTS
+	if (isIVideo && isJVideo) || (!isIVideo && !isJVideo) {
+		// If PTS is also equal, we treat them as equivalent by returning false.
+		// This is an edge case, as two distinct frames should not have identical DTS and PTS.
+		return h[i].Header().Pts < h[j].Header().Pts
+	}
+
+	// Prioritize video frames over audio frames
+	return isIVideo && !isJVideo
+}
+
+// Swap swaps two elements in the heap.
+func (h FrameHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+
+// Push adds an element to the heap.
+func (h *FrameHeap) Push(x any) {
+	*h = append(*h, x.(Frame))
+}
+
+// Pop removes and returns the minimum element (root) from the heap.
+func (h *FrameHeap) Pop() any {
+	old := *h
+	n := len(old)
+	frame := old[n-1]
+	*h = old[0 : n-1]
+	return frame
 }

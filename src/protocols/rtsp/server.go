@@ -39,17 +39,17 @@ type Server struct {
 	logger zerolog.Logger
 	config RtspConfig
 
-	handler *serverHandler
+	handler *Connection
 
 	wg sync.WaitGroup
 }
 
-func New(config RtspConfig, haven types.Haven, logger zerolog.Logger) (types.ProtocolServer, error) {
+func New(config RtspConfig, haven types.Haven, logger zerolog.Logger) (types.RtspProtocolServer, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
 
-	h := &serverHandler{
+	h := &Connection{
 		logger:     logger,
 		isFlagship: true,
 		haven:      haven,
@@ -58,9 +58,9 @@ func New(config RtspConfig, haven types.Haven, logger zerolog.Logger) (types.Pro
 		Handler:     h,
 		RTSPAddress: fmt.Sprintf(":%d", config.Port),
 
-		// MaxPacketSize: 600,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
+		// MaxPacketSize: 600,
 		// WriteQueueSize: 256 * 4,
 	}
 

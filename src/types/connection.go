@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"encoding/json"
+	"net"
 )
 
 // ConnectionType represents the type of connection (publisher, subscriber, etc)
@@ -58,14 +59,12 @@ func (c ConnectionType) IsFlagship() bool {
 }
 
 type Connection interface {
-	GetIp() string
+	GetAddr() net.Addr
 	GetType() ConnectionType
 	GetCtx() context.Context
 
 	Write() error
 	Read() chan Frame
 
-	// SignalClose signal to the connection that it should close
-	// This allows us for either the connection or the system to close the connection without calling Close() multiple times
 	SignalClose()
 }

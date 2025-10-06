@@ -158,3 +158,6 @@ cython_debug/
 # PyCharm Settings
 .idea
 GeoLite2-City.mmdb
+
+src/buffer/
+src/protocols/srt/

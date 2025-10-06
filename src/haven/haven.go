@@ -11,29 +11,43 @@ import (
 )
 
 type Haven struct {
+	logger zerolog.Logger
+
 	streamId   string
 	passphrase string
 
-	flagship types.Flagship
-	escorts  sync.Map
+	flagship types.Ship   // flagship provides the main stream
+	escorts  []types.Ship // escorts are nodes that relay the flagship's stream to viewers
+	leeches  []types.Ship // leeches are nodes that only consume the stream and don't relay it
 
-	packetBuffer types.PacketBuffer
+	flagshipMtx sync.RWMutex
+	escortMtx   sync.RWMutex
+	leechMtx    sync.RWMutex
 
-	logger zerolog.Logger
+	buffer types.PacketBuffer
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 var _ types.Haven = (*Haven)(nil)
 
 func NewHaven(passphrase, streamId string, packetBuffer types.PacketBuffer, logger zerolog.Logger) types.Haven {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Haven{
+		logger: logger,
+
 		streamId:   streamId,
 		passphrase: passphrase,
 
-		flagship:     nil,
-		escorts:      sync.Map{},
-		packetBuffer: packetBuffer,
+		flagship: nil,
+		escorts:  make([]types.Ship, 0),
+		leeches:  make([]types.Ship, 0),
 
-		logger: logger,
+		buffer: packetBuffer,
+
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
@@ -41,26 +55,29 @@ func (h *Haven) GetStreamId() string {
 	return h.streamId
 }
 
-func (h *Haven) GetFlagship() types.Flagship {
-	return h.flagship
+func (h *Haven) GetPassphrase() string {
+	return h.passphrase
 }
 
-func (h *Haven) TooManyEscorts() bool {
-	count := 0
-	h.escorts.Range(func(_, _ any) bool {
-		count++
-		return true
-	})
+func (h *Haven) GetFlagship() (types.Ship, error) {
+	h.flagshipMtx.RLock()
+	defer h.flagshipMtx.RUnlock()
 
-	return count >= 10
+	if h.flagship == nil {
+		return nil, types.ErrFlagshipNotFound
+	}
+	return h.flagship, nil
 }
 
 func (h *Haven) AddFlagship(mediaSession types.Connection) error {
+	h.flagshipMtx.Lock()
+	defer h.flagshipMtx.Unlock()
+
 	if h.flagship != nil {
 		return types.ErrFlagshipAlreadyExists
 	}
 
-	flagship, err := NewFlagship(mediaSession)
+	flagship, err := NewShip(mediaSession)
 	if err != nil {
 		return err
 	}
@@ -68,48 +85,127 @@ func (h *Haven) AddFlagship(mediaSession types.Connection) error {
 
 	// Monitor the flagship's context and remove it from the map when it is done
 	// Closes the escorts as well
-	go func(ctx context.Context) {
-		<-ctx.Done()
-		h.logger.Debug().Msg("Flagship context done, closing all escorts")
-		h.escorts.Range(func(_, value any) bool {
-			escort := value.(types.Escort)
-			escort.SignalClose()
-			return true
-		})
-		h.flagship = nil
-	}(flagship.GetCtx())
+	go func() {
+		select {
+		case <-h.ctx.Done():
+			h.logger.Debug().Msg("Haven context done, closing flagship")
+
+			h.flagship.SignalClose()
+
+		case <-flagship.GetCtx().Done():
+			h.logger.Debug().Msg("Flagship context done, closing flagship")
+
+			h.escortMtx.Lock()
+			defer h.escortMtx.Unlock()
+			for _, escort := range h.escorts {
+				h.logger.Debug().Msgf("Closing escort '%s' as flagship has disconnected", escort.GetIp().String())
+				escort.SignalClose()
+			}
+			h.escorts = make([]types.Ship, 0)
+
+			h.leechMtx.Lock()
+			defer h.leechMtx.Unlock()
+			for _, leech := range h.leeches {
+				h.logger.Debug().Msgf("Closing leech '%s' as flagship has disconnected", leech.GetIp().String())
+				leech.SignalClose()
+			}
+			h.leeches = make([]types.Ship, 0)
+
+			h.flagshipMtx.Lock()
+			defer h.flagshipMtx.Unlock()
+			h.flagship = nil
+		}
+	}()
 
 	return nil
 }
 
 func (h *Haven) AddEscort(mediaSession types.Connection) error {
+	h.flagshipMtx.RLock()
 	if h.flagship == nil {
+		h.flagshipMtx.RUnlock()
 		return types.ErrFlagshipNotFound
 	}
+	h.flagshipMtx.RUnlock()
 
-	escort, err := NewEscort(mediaSession)
+	escort, err := NewShip(mediaSession)
 	if err != nil {
 		return err
 	}
-	h.escorts.Store(escort.GetIp(), escort)
+	h.escorts = append(h.escorts, escort)
 
 	// Monitor the escort's context and remove it from the map when it is done
-	go func(ctx context.Context, key string) {
-		<-ctx.Done()
-		h.logger.Debug().Msgf("Escort context done, removing escort '%s' from map", key)
-		h.escorts.Delete(key)
-	}(escort.GetCtx(), escort.GetIp())
+	go func() {
+		select {
+		case <-h.ctx.Done():
+			h.logger.Debug().Msgf("Haven context done, closing escort '%s'", escort.GetIp().String())
+			escort.SignalClose()
+
+		case <-escort.GetCtx().Done():
+			h.logger.Debug().Msgf("Escort context done, closing escort '%s'", escort.GetIp().String())
+
+			h.escortMtx.Lock()
+			defer h.escortMtx.Unlock()
+			for i, e := range h.escorts {
+				if e == escort {
+					h.escorts = append(h.escorts[:i], h.escorts[i+1:]...)
+					break
+				}
+			}
+		}
+	}()
 
 	return nil
 }
 
-func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Escort, error) {
-	empty := true
-	h.escorts.Range(func(_, _ any) bool {
-		empty = false
-		return false
-	})
-	if empty {
+func (h *Haven) TooManyEscorts() bool {
+	h.escortMtx.RLock()
+	defer h.escortMtx.RUnlock()
+
+	return len(h.escorts) >= 10
+}
+
+func (h *Haven) AddLeech(mediaSession types.Connection) error {
+	h.flagshipMtx.RLock()
+	if h.flagship == nil {
+		h.flagshipMtx.RUnlock()
+		return types.ErrFlagshipNotFound
+	}
+	h.flagshipMtx.RUnlock()
+
+	h.leechMtx.Lock()
+	defer h.leechMtx.Unlock()
+
+	leech, err := NewShip(mediaSession)
+	if err != nil {
+		return err
+	}
+	h.leeches = append(h.leeches, leech)
+
+	// Monitor the leech's context and remove it from the map when it is done
+	go func() {
+		select {
+		case <-h.ctx.Done():
+			h.logger.Debug().Msgf("Haven context done, closing leech '%s'", leech.GetIp().String())
+			leech.SignalClose()
+
+		case <-leech.GetCtx().Done():
+			h.logger.Debug().Msgf("Leech context done, closing leech '%s'", leech.GetIp().String())
+
+			for i, l := range h.leeches {
+				if l == leech {
+					h.leeches = append(h.leeches[:i], h.leeches[i+1:]...)
+					break
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Ship, error) {
+	if len(h.escorts) <= 0 {
 		return nil, types.ErrEscortsNotAvailable
 	}
 
@@ -118,13 +214,12 @@ func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Escort, error) {
 		return nil, err
 	}
 
-	var closestEscort types.Escort
+	var closestEscort types.Ship
 	clientGeoPoint := clientLocation.GetGeoPoint()
 	flagshipLocation := h.flagship.GetLocation()
 	closestDistance := flagshipLocation.GetDistanceBetween(clientGeoPoint)
 
-	h.escorts.Range(func(_, value any) bool {
-		escort := value.(types.Escort)
+	for _, escort := range h.escorts {
 		escortLocation := escort.GetLocation()
 		distance := escortLocation.GetDistanceBetween(clientGeoPoint)
 
@@ -132,40 +227,30 @@ func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Escort, error) {
 			closestDistance = distance
 			closestEscort = escort
 		}
-		return true
-	})
+	}
+
+	if closestEscort == nil {
+		return nil, types.ErrEscortsNotAvailable
+	}
 
 	return closestEscort, nil
 }
 
-func (h *Haven) GetPassphrase() string {
-	return h.passphrase
-}
-
-func (h *Haven) GetPacketBuffer() (types.PacketBuffer, error) {
-	if h.packetBuffer == nil {
-		return nil, types.ErrBufferNotReady
-	}
-
-	return h.packetBuffer, nil
-}
-
 func (h *Haven) Close() {
+	h.flagshipMtx.Lock()
+	defer h.flagshipMtx.Unlock()
+
+	h.escortMtx.Lock()
+	defer h.escortMtx.Unlock()
+
 	h.logger.Debug().Msg("Closing Haven")
 
 	if h.flagship != nil {
 		h.flagship.SignalClose()
 	}
 
-	h.escorts.Range(func(_, value any) bool {
-		escort := value.(types.Escort)
+	for _, escort := range h.escorts {
 		escort.SignalClose()
-		return true
-	})
-
-	if h.packetBuffer == nil {
-		h.packetBuffer.Close()
-		h.packetBuffer = nil
 	}
-
+	h.escorts = make([]types.Ship, 0)
 }

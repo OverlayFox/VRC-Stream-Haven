@@ -29,9 +29,9 @@ func main() {
 	}
 }
 
-func startFlagship() {
-	tempPassphrase := "thisisaverysecurepassphrase"
+var tempPassphrase = "thisisaverysecurepassphrase"
 
+func startFlagship() {
 	haven := haven.NewHaven(tempPassphrase, "test", nil, factory.NewLogger("haven"))
 
 	rtspConfig := rtsp.RtspConfig{
@@ -69,5 +69,40 @@ func startFlagship() {
 }
 
 func startEscort() {
+	haven := haven.NewHaven(tempPassphrase, "test", nil, factory.NewLogger("haven"))
 
+	// rtspConfig := rtsp.RtspConfig{
+	// 	Port:       8554,
+	// 	Address:    nil,
+	// 	Passphrase: tempPassphrase,
+	// 	IsFlagship: false,
+	// }
+
+	// rtspServer, err := rtsp.New(rtspConfig, haven, factory.NewLogger("rtsp_server"))
+	// if err != nil {
+	// 	log.Fatal().Err(err).Msg("Failed to create RTSP server")
+	// 	return
+	// }
+	// rtspServer.Start()
+
+	srtConfig := srt.SrtConfig{
+		Port:       8890,
+		Passphrase: tempPassphrase,
+		IsFlagship: false,
+	}
+	srtServer, err := srt.New(srtConfig, haven, factory.NewLogger("srt_server"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create SRT server")
+		return
+	}
+	err = srtServer.Call("localhost:8890")
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to connect to SRT server")
+	}
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	<-sig
+
+	log.Info().Msg("Received interrupt signal, shutting down...")
 }
