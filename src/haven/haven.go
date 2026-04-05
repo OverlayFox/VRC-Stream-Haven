@@ -19,7 +19,7 @@ import (
 type Haven struct {
 	logger zerolog.Logger
 
-	streamId   string
+	streamID   string
 	passphrase string
 
 	publisher types.Connection   // publisher provides the main stream
@@ -40,7 +40,7 @@ type Haven struct {
 
 var _ types.Haven = (*Haven)(nil)
 
-func NewHaven(passphrase, streamId string, logger zerolog.Logger) (types.Haven, error) {
+func NewHaven(passphrase, streamID string, logger zerolog.Logger) (types.Haven, error) {
 	demuxerConfig := multiplexer.Settings{
 		InputBufferCap:  100,
 		OutputBufferCap: 200,
@@ -52,7 +52,7 @@ func NewHaven(passphrase, streamId string, logger zerolog.Logger) (types.Haven, 
 	return &Haven{
 		logger: logger,
 
-		streamId:   streamId,
+		streamID:   streamID,
 		passphrase: passphrase,
 
 		publisher: nil,
@@ -60,15 +60,15 @@ func NewHaven(passphrase, streamId string, logger zerolog.Logger) (types.Haven, 
 		leeches:   make([]types.Connection, 0),
 
 		demuxer: demuxer,
-		buffer:  buffer.NewBuffer(logger.With().Str("component", fmt.Sprintf("%s_buffer", streamId)).Logger()),
+		buffer:  buffer.NewBuffer(logger.With().Str("component", fmt.Sprintf("%s_buffer", streamID)).Logger()),
 
 		ctx:    ctx,
 		cancel: cancel,
 	}, nil
 }
 
-func (h *Haven) GetStreamId() string {
-	return h.streamId
+func (h *Haven) GetStreamID() string {
+	return h.streamID
 }
 
 func (h *Haven) GetPassphrase() string {
@@ -163,7 +163,10 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 						h.logger.Debug().Msg("Frame channel closed")
 						return
 					}
-					h.buffer.Write(frame.Clone())
+					err := h.buffer.Write(frame.Clone())
+					if err != nil {
+						h.logger.Error().Err(err).Msg("Haven buffer write error")
+					}
 					frame.Decommission()
 				}
 			}

@@ -331,7 +331,7 @@ func (b *subBuffer) getStartPosFromPTS(targetPTS time.Duration, newestPos int) (
 		pos := (newestPos - i + b.cap) % b.cap
 		peekedFrame, err := b.circBuf.peek(pos)
 		if err != nil {
-			return closestPos, closestPTS, nil
+			return closestPos, closestPTS, err
 		}
 		diff := (targetPTS - peekedFrame.Header().Pts).Abs()
 		if diff <= minDiff {

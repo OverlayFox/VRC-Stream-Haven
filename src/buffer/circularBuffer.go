@@ -33,13 +33,13 @@ type circularBuffer struct {
 	wg     sync.WaitGroup
 }
 
-func newCircularBuffer(logger zerolog.Logger, cap int) *circularBuffer {
+func newCircularBuffer(logger zerolog.Logger, capacity int) *circularBuffer {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &circularBuffer{
 		logger:   logger,
-		frames:   make([]types.Frame, cap),
+		frames:   make([]types.Frame, capacity),
 		writePos: 0,
-		cap:      cap,
+		cap:      capacity,
 		subs:     make(map[chan types.Frame]chan types.Frame),
 		ctx:      ctx,
 		cancel:   cancel,

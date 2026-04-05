@@ -186,18 +186,18 @@ func (d *MpegTsDemuxer) buildFrames(data *astits.DemuxerData, pidTypes map[uint1
 	if !ok {
 		return nil, nil
 	}
-	codecId := mapStreamType(streamType)
-	if codecId == codec.CODECID_UNRECOGNIZED {
+	codecID := mapStreamType(streamType)
+	if codecID == codec.CODECID_UNRECOGNIZED {
 		return nil, fmt.Errorf("unknown stream type: %s", streamType)
 	}
 	payload := make([]byte, len(data.PES.Data))
 	copy(payload, data.PES.Data)
-	if codecId == codec.CODECID_AUDIO_AAC {
+	if codecID == codec.CODECID_AUDIO_AAC {
 		return d.aacFrames.SplitFrameWithTiming(payload, pts, dts), nil
 	}
 	frame, err := buffer.NewFrameFromData(
 		types.FrameHeader{
-			Cid: codecId,
+			Cid: codecID,
 			Pts: pts,
 			Dts: dts,
 		},

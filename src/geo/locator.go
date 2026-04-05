@@ -78,10 +78,10 @@ func GetPublicLocation(addr net.Addr) (types.Location, error) {
 	if err != nil {
 		return types.Location{}, fmt.Errorf("failed to parse IP address: %w", err)
 	}
-	parsedIp := net.ParseIP(ip)
+	parsedIP := net.ParseIP(ip)
 
 	var locatorUris []string
-	if parsedIp.IsPrivate() || parsedIp.IsLoopback() || parsedIp.IsMulticast() || parsedIp.IsUnspecified() {
+	if parsedIP.IsPrivate() || parsedIP.IsLoopback() || parsedIP.IsMulticast() || parsedIP.IsUnspecified() {
 		locatorUris = []string{
 			"http://ip-api.com/json/",
 			"http://ipwho.is/",
@@ -95,8 +95,9 @@ func GetPublicLocation(addr net.Addr) (types.Location, error) {
 		}
 	}
 
-	ipApiFunc := func(uri string) (types.Location, error) {
-		response, err := client.Get(uri)
+	ipAPIFunc := func(uri string) (types.Location, error) {
+		var response *http.Response
+		response, err = client.Get(uri)
 		if err != nil {
 			return types.Location{}, err
 		}
@@ -124,7 +125,7 @@ func GetPublicLocation(addr net.Addr) (types.Location, error) {
 	}
 
 	for _, uri := range locatorUris {
-		location, err := ipApiFunc(uri)
+		location, err := ipAPIFunc(uri)
 		if err == nil {
 			return location, nil
 		}

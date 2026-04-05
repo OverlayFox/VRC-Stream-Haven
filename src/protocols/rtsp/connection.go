@@ -65,47 +65,47 @@ func (sh *Connection) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 				StatusCode: base.StatusConnectionCredentialsNotAccepted,
 			}, nil, nil
 		}
-		streamId := strings.TrimSpace(paths[1])
+		streamID := strings.TrimSpace(paths[1])
 		passphrase := strings.TrimSpace(paths[2])
-		clientIp := ctx.Conn.NetConn().RemoteAddr()
+		clientIP := ctx.Conn.NetConn().RemoteAddr()
 
-		sh.logger.Debug().Msgf("received read request from ip '%s' for stream '%s', passphrase '%s'", clientIp.String(), streamId, passphrase)
+		sh.logger.Debug().Msgf("received read request from ip '%s' for stream '%s', passphrase '%s'", clientIP.String(), streamID, passphrase)
 
-		if sh.haven.GetStreamId() != streamId {
-			sh.logger.Warn().Msgf("stream ID mismatch for client '%s'", clientIp.String())
+		if sh.haven.GetStreamID() != streamID {
+			sh.logger.Warn().Msgf("stream ID mismatch for client '%s'", clientIP.String())
 			return &base.Response{
 				StatusCode: base.StatusSessionNotFound,
 			}, nil, nil
 		}
 
 		if sh.haven.GetPassphrase() != passphrase {
-			sh.logger.Warn().Msgf("passphrase mismatch for client '%s'", clientIp.String())
+			sh.logger.Warn().Msgf("passphrase mismatch for client '%s'", clientIP.String())
 			return &base.Response{
 				StatusCode: base.StatusConnectionCredentialsNotAccepted,
 			}, nil, nil
 		}
 
 		if sh.stream == nil {
-			sh.logger.Info().Msgf("stream does not exist yet for client '%s'", clientIp.String())
+			sh.logger.Info().Msgf("stream does not exist yet for client '%s'", clientIP.String())
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
 			}, nil, nil
 		}
 
-		escort, err := sh.haven.GetClosestEscort(clientIp)
+		escort, err := sh.haven.GetClosestEscort(clientIP)
 		if err != nil {
 			if errors.Is(err, types.ErrEscortsNotAvailable) {
 				return &base.Response{
 					StatusCode: base.StatusOK,
 				}, sh.stream, nil
 			}
-			sh.logger.Error().Err(err).Msgf("failed to get escort for client '%s'", clientIp.String())
+			sh.logger.Error().Err(err).Msgf("failed to get escort for client '%s'", clientIP.String())
 			return &base.Response{
 				StatusCode: base.StatusInternalServerError,
 			}, nil, nil
 		}
 
-		sh.logger.Info().Msgf("redirecting client '%s' to escort '%s'", clientIp.String(), escort.GetAddr().String())
+		sh.logger.Info().Msgf("redirecting client '%s' to escort '%s'", clientIP.String(), escort.GetAddr().String())
 		return &base.Response{
 			StatusCode: base.StatusMovedPermanently,
 			Header: base.Header{

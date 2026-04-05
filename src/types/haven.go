@@ -5,7 +5,7 @@ import (
 )
 
 type Haven interface {
-	GetStreamId() string
+	GetStreamID() string
 	GetPassphrase() string
 	GetPublisher() (Connection, error)
 

@@ -35,7 +35,10 @@ func newPool() *bufPool {
 }
 
 func (p *bufPool) Get() *bytes.Buffer {
-	b := p.pool.Get().(*bytes.Buffer)
+	b, ok := p.pool.Get().(*bytes.Buffer)
+	if !ok {
+		return bytes.NewBuffer(make([]byte, 0, MaxPayloadSize))
+	}
 	b.Reset()
 	return b
 }

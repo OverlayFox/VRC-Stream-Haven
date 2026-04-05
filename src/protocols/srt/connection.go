@@ -41,13 +41,13 @@ func NewConnection(logger zerolog.Logger, serverCtx context.Context, haven types
 		cancel: cancel,
 	}
 
-	streamId, err := parseStreamRequest(connReq)
+	streamID, err := parseStreamRequest(connReq)
 	if err != nil {
 		connReq.Reject(goSrt.REJ_ROGUE)
 		return nil, err
 	}
 
-	if err := validateConnectionRequest(haven, connReq, streamId); err != nil {
+	if err = validateConnectionRequest(haven, connReq, streamID); err != nil {
 		return nil, err
 	}
 
@@ -57,7 +57,7 @@ func NewConnection(logger zerolog.Logger, serverCtx context.Context, haven types
 		return nil, err
 	}
 
-	c.connType = streamId.connectionType
+	c.connType = streamID.connectionType
 
 	c.conn, err = connReq.Accept()
 	if err != nil {
@@ -208,7 +208,7 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 // Helper functions
 //
 
-func validateConnectionRequest(haven types.Haven, req goSrt.ConnRequest, streamId streamRequest) error {
+func validateConnectionRequest(haven types.Haven, req goSrt.ConnRequest, streamID streamRequest) error {
 	if req.Version() != 5 {
 		req.Reject(goSrt.REJ_VERSION)
 		return fmt.Errorf("unsupported SRT version '%d'", req.Version())
@@ -222,7 +222,7 @@ func validateConnectionRequest(haven types.Haven, req goSrt.ConnRequest, streamI
 		return fmt.Errorf("failed to set passphrase: %w", err)
 	}
 
-	switch streamId.connectionType {
+	switch streamID.connectionType {
 	case types.ConnectionTypePublisher:
 		if _, err := haven.GetPublisher(); err == nil {
 			req.Reject(goSrt.REJ_ROGUE)
@@ -235,14 +235,14 @@ func validateConnectionRequest(haven types.Haven, req goSrt.ConnRequest, streamI
 		}
 	default:
 		req.Reject(goSrt.REJ_ROGUE)
-		return fmt.Errorf("unsupported connection type '%s'", streamId.connectionType.String())
+		return fmt.Errorf("unsupported connection type '%s'", streamID.connectionType.String())
 	}
 
 	return nil
 }
 
 type streamRequest struct {
-	streamId       string
+	streamID       string
 	connectionType types.ConnectionType
 }
 
@@ -257,7 +257,7 @@ func parseStreamRequest(req goSrt.ConnRequest) (streamRequest, error) {
 	}
 
 	return streamRequest{
-		streamId:       parts[1],
+		streamID:       parts[1],
 		connectionType: connectionType,
 	}, nil
 }
