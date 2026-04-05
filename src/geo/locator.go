@@ -49,7 +49,7 @@ func (pl *PublicLocation) UnmarshalJSON(data []byte) error {
 	var f3 Format3
 	err3 := json.Unmarshal(data, &f3)
 	if err3 != nil {
-		return fmt.Errorf("failed to parse location data: %v, %v", err1, err2)
+		return fmt.Errorf("failed to parse location data: %w, %w", err1, err2)
 	}
 	coords := strings.Split(f3.LatLong, ",")
 	if len(coords) != 2 {
@@ -57,11 +57,11 @@ func (pl *PublicLocation) UnmarshalJSON(data []byte) error {
 	}
 	lat, err := strconv.ParseFloat(coords[0], 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse latitude: %v", err)
+		return fmt.Errorf("failed to parse latitude: %w", err)
 	}
 	long, err := strconv.ParseFloat(coords[1], 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse longitude: %v", err)
+		return fmt.Errorf("failed to parse longitude: %w", err)
 	}
 	pl.Latitude = lat
 	pl.Longitude = long
@@ -76,7 +76,7 @@ func GetPublicLocation(addr net.Addr) (types.Location, error) {
 
 	ip, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
-		return types.Location{}, fmt.Errorf("failed to parse IP address: %v", err)
+		return types.Location{}, fmt.Errorf("failed to parse IP address: %w", err)
 	}
 	parsedIp := net.ParseIP(ip)
 
@@ -104,13 +104,13 @@ func GetPublicLocation(addr net.Addr) (types.Location, error) {
 
 		bodyBytes, err := io.ReadAll(response.Body)
 		if err != nil {
-			return types.Location{}, fmt.Errorf("failed to read response body: %v", err)
+			return types.Location{}, fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		var body PublicLocation
 		err = json.Unmarshal(bodyBytes, &body)
 		if err != nil {
-			return types.Location{}, fmt.Errorf("failed to decode response body: %v, %s", err, string(bodyBytes))
+			return types.Location{}, fmt.Errorf("failed to decode response body: %w, %s", err, string(bodyBytes))
 		}
 
 		if body.Latitude == 0 && body.Longitude == 0 {
@@ -130,5 +130,5 @@ func GetPublicLocation(addr net.Addr) (types.Location, error) {
 		}
 	}
 
-	return types.Location{}, fmt.Errorf("failed to get public location: primary and fallback services failed: '%v'", err)
+	return types.Location{}, fmt.Errorf("failed to get public location: primary and fallback services failed: '%w'", err)
 }

@@ -2,11 +2,17 @@ package haven
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"sync"
+	"time"
 
+	"github.com/OverlayFox/VRC-Stream-Haven/src/buffer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/geo"
+	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
+	"github.com/datarhei/gosrt/packet"
 	"github.com/rs/zerolog"
 )
 
@@ -16,23 +22,32 @@ type Haven struct {
 	streamId   string
 	passphrase string
 
-	flagship types.Ship   // flagship provides the main stream
-	escorts  []types.Ship // escorts are nodes that relay the flagship's stream to viewers
-	leeches  []types.Ship // leeches are nodes that only consume the stream and don't relay it
+	publisher types.Connection   // publisher provides the main stream
+	escorts   []types.Connection // escorts are nodes that relay the publisher's stream to viewers
+	leeches   []types.Connection // leeches are nodes that only consume the stream and don't relay it
 
-	flagshipMtx sync.RWMutex
-	escortMtx   sync.RWMutex
-	leechMtx    sync.RWMutex
+	PublisherMtx sync.RWMutex
+	escortMtx    sync.RWMutex
+	leechMtx     sync.RWMutex
 
-	buffer types.PacketBuffer
+	demuxer *multiplexer.MpegTsDemuxer
+	buffer  types.Buffer
 
+	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
 var _ types.Haven = (*Haven)(nil)
 
-func NewHaven(passphrase, streamId string, packetBuffer types.PacketBuffer, logger zerolog.Logger) types.Haven {
+func NewHaven(passphrase, streamId string, logger zerolog.Logger) (types.Haven, error) {
+	demuxerConfig := multiplexer.Settings{
+		InputBufferCap:  100,
+		OutputBufferCap: 200,
+		AudioDriftLimit: 20 * time.Millisecond,
+	}
+	demuxer := multiplexer.NewMpegTsDemuxer(logger.With().Str("component", "ts_demuxer").Logger(), demuxerConfig, context.Background())
+
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Haven{
 		logger: logger,
@@ -40,15 +55,16 @@ func NewHaven(passphrase, streamId string, packetBuffer types.PacketBuffer, logg
 		streamId:   streamId,
 		passphrase: passphrase,
 
-		flagship: nil,
-		escorts:  make([]types.Ship, 0),
-		leeches:  make([]types.Ship, 0),
+		publisher: nil,
+		escorts:   make([]types.Connection, 0),
+		leeches:   make([]types.Connection, 0),
 
-		buffer: packetBuffer,
+		demuxer: demuxer,
+		buffer:  buffer.NewBuffer(logger.With().Str("component", fmt.Sprintf("%s_buffer", streamId)).Logger()),
 
 		ctx:    ctx,
 		cancel: cancel,
-	}
+	}, nil
 }
 
 func (h *Haven) GetStreamId() string {
@@ -59,101 +75,160 @@ func (h *Haven) GetPassphrase() string {
 	return h.passphrase
 }
 
-func (h *Haven) GetFlagship() (types.Ship, error) {
-	h.flagshipMtx.RLock()
-	defer h.flagshipMtx.RUnlock()
+func (h *Haven) GetPublisher() (types.Connection, error) {
+	h.PublisherMtx.RLock()
+	defer h.PublisherMtx.RUnlock()
 
-	if h.flagship == nil {
-		return nil, types.ErrFlagshipNotFound
+	if h.publisher == nil {
+		return nil, types.ErrPublisherNotFound
 	}
-	return h.flagship, nil
+	return h.publisher, nil
 }
 
-func (h *Haven) AddFlagship(mediaSession types.Connection) error {
-	h.flagshipMtx.Lock()
-	defer h.flagshipMtx.Unlock()
-
-	if h.flagship != nil {
-		return types.ErrFlagshipAlreadyExists
+func (h *Haven) AddConnection(conn types.Connection) error {
+	switch conn.GetType() {
+	case types.ConnectionTypeEscort:
+		return h.addEscort(conn)
+	case types.ConnectionTypeLeech:
+		return h.addLeech(conn)
+	case types.ConnectionTypePublisher:
+		return h.addPublisher(conn)
+	default:
+		return errors.New("unknown connection type")
 	}
+}
 
-	flagship, err := NewShip(mediaSession)
-	if err != nil {
-		return err
+func (h *Haven) addPublisher(conn types.Connection) error {
+	h.PublisherMtx.Lock()
+	defer h.PublisherMtx.Unlock()
+
+	if h.publisher != nil {
+		return types.ErrPublisherAlreadyExists
 	}
-	h.flagship = flagship
+	h.publisher = conn
 
 	// Monitor the flagship's context and remove it from the map when it is done
 	// Closes the escorts as well
-	go func() {
+	h.wg.Go(func() {
 		select {
 		case <-h.ctx.Done():
-			h.logger.Debug().Msg("Haven context done, closing flagship")
+			h.logger.Debug().Msg("Haven context done, closing publisher")
+			h.publisher.Close()
 
-			h.flagship.SignalClose()
-
-		case <-flagship.GetCtx().Done():
-			h.logger.Debug().Msg("Flagship context done, closing flagship")
+		case <-h.publisher.GetCtx().Done():
+			h.logger.Debug().Msg("Publisher context done, removing publisher from haven")
 
 			h.escortMtx.Lock()
 			defer h.escortMtx.Unlock()
 			for _, escort := range h.escorts {
-				h.logger.Debug().Msgf("Closing escort '%s' as flagship has disconnected", escort.GetIp().String())
-				escort.SignalClose()
+				h.logger.Info().Msgf("Closing escort '%s' as publisher has disconnected", escort.GetAddr().String())
+				escort.Close()
 			}
-			h.escorts = make([]types.Ship, 0)
+			h.escorts = make([]types.Connection, 0)
 
 			h.leechMtx.Lock()
 			defer h.leechMtx.Unlock()
 			for _, leech := range h.leeches {
-				h.logger.Debug().Msgf("Closing leech '%s' as flagship has disconnected", leech.GetIp().String())
-				leech.SignalClose()
+				h.logger.Info().Msgf("Closing leech '%s' as publisher has disconnected", leech.GetAddr().String())
+				leech.Close()
 			}
-			h.leeches = make([]types.Ship, 0)
+			h.leeches = make([]types.Connection, 0)
 
-			h.flagshipMtx.Lock()
-			defer h.flagshipMtx.Unlock()
-			h.flagship = nil
+			h.PublisherMtx.Lock()
+			defer h.PublisherMtx.Unlock()
+			h.publisher = nil
+		}
+	})
+
+	go func() {
+		packetCh := h.publisher.Read()
+		demuxerPktCh := make(chan packet.Packet, 100)
+		frameCh, errCh := h.demuxer.StartDemuxer(demuxerPktCh)
+
+		h.wg.Go(func() {
+			for {
+				select {
+				case <-h.ctx.Done():
+					h.logger.Debug().Msg("Haven context done, closing demuxer")
+					h.demuxer.Close()
+					return
+				case err := <-errCh:
+					if err != nil {
+						h.logger.Error().Err(err).Msg("Haven demuxer error")
+					}
+					return
+
+				case frame, ok := <-frameCh:
+					if !ok {
+						h.logger.Debug().Msg("Frame channel closed")
+						return
+					}
+					h.buffer.Write(frame.Clone())
+					frame.Decommission()
+				}
+			}
+		})
+
+		for {
+			select {
+			case <-h.ctx.Done():
+				return
+			case p, ok := <-packetCh:
+				if !ok {
+					h.logger.Debug().Msg("Packet channel closed")
+					return
+				}
+
+				demuxerClone := p.Clone()
+				select {
+				case demuxerPktCh <- demuxerClone:
+				default:
+					demuxerClone.Decommission()
+				}
+
+				for _, escort := range h.escorts {
+					escortClone := p.Clone()
+					escort.Write(escortClone)
+				}
+
+				p.Decommission()
+			}
 		}
 	}()
 
 	return nil
 }
 
-func (h *Haven) AddEscort(mediaSession types.Connection) error {
-	h.flagshipMtx.RLock()
-	if h.flagship == nil {
-		h.flagshipMtx.RUnlock()
-		return types.ErrFlagshipNotFound
+func (h *Haven) addEscort(conn types.Connection) error {
+	h.PublisherMtx.RLock()
+	if h.publisher == nil {
+		h.PublisherMtx.RUnlock()
+		return types.ErrPublisherNotFound
 	}
-	h.flagshipMtx.RUnlock()
+	h.PublisherMtx.RUnlock()
 
-	escort, err := NewShip(mediaSession)
-	if err != nil {
-		return err
-	}
-	h.escorts = append(h.escorts, escort)
+	h.escorts = append(h.escorts, conn)
 
 	// Monitor the escort's context and remove it from the map when it is done
-	go func() {
+	h.wg.Go(func() {
 		select {
 		case <-h.ctx.Done():
-			h.logger.Debug().Msgf("Haven context done, closing escort '%s'", escort.GetIp().String())
-			escort.SignalClose()
+			h.logger.Debug().Msgf("Haven context done, closing escort '%s'", conn.GetAddr().String())
+			conn.Close()
 
-		case <-escort.GetCtx().Done():
-			h.logger.Debug().Msgf("Escort context done, closing escort '%s'", escort.GetIp().String())
+		case <-conn.GetCtx().Done():
+			h.logger.Debug().Msgf("Escort context done, removing escort '%s' from haven", conn.GetAddr().String())
 
 			h.escortMtx.Lock()
 			defer h.escortMtx.Unlock()
 			for i, e := range h.escorts {
-				if e == escort {
+				if e == conn {
 					h.escorts = append(h.escorts[:i], h.escorts[i+1:]...)
 					break
 				}
 			}
 		}
-	}()
+	})
 
 	return nil
 }
@@ -162,49 +237,45 @@ func (h *Haven) TooManyEscorts() bool {
 	h.escortMtx.RLock()
 	defer h.escortMtx.RUnlock()
 
+	// TODO: Make this configurable
 	return len(h.escorts) >= 10
 }
 
-func (h *Haven) AddLeech(mediaSession types.Connection) error {
-	h.flagshipMtx.RLock()
-	if h.flagship == nil {
-		h.flagshipMtx.RUnlock()
-		return types.ErrFlagshipNotFound
+func (h *Haven) addLeech(conn types.Connection) error {
+	h.PublisherMtx.RLock()
+	if h.publisher == nil {
+		h.PublisherMtx.RUnlock()
+		return types.ErrPublisherNotFound
 	}
-	h.flagshipMtx.RUnlock()
+	h.PublisherMtx.RUnlock()
 
 	h.leechMtx.Lock()
 	defer h.leechMtx.Unlock()
-
-	leech, err := NewShip(mediaSession)
-	if err != nil {
-		return err
-	}
-	h.leeches = append(h.leeches, leech)
+	h.leeches = append(h.leeches, conn)
 
 	// Monitor the leech's context and remove it from the map when it is done
-	go func() {
+	h.wg.Go(func() {
 		select {
 		case <-h.ctx.Done():
-			h.logger.Debug().Msgf("Haven context done, closing leech '%s'", leech.GetIp().String())
-			leech.SignalClose()
+			h.logger.Debug().Msgf("Haven context done, closing leech '%s'", conn.GetAddr().String())
+			conn.Close()
 
-		case <-leech.GetCtx().Done():
-			h.logger.Debug().Msgf("Leech context done, closing leech '%s'", leech.GetIp().String())
+		case <-conn.GetCtx().Done():
+			h.logger.Debug().Msgf("Leech context done, removing leech '%s' from haven", conn.GetAddr().String())
 
 			for i, l := range h.leeches {
-				if l == leech {
+				if l == conn {
 					h.leeches = append(h.leeches[:i], h.leeches[i+1:]...)
 					break
 				}
 			}
 		}
-	}()
+	})
 
 	return nil
 }
 
-func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Ship, error) {
+func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Connection, error) {
 	if len(h.escorts) <= 0 {
 		return nil, types.ErrEscortsNotAvailable
 	}
@@ -214,9 +285,9 @@ func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Ship, error) {
 		return nil, err
 	}
 
-	var closestEscort types.Ship
+	var closestEscort types.Connection
 	clientGeoPoint := clientLocation.GetGeoPoint()
-	flagshipLocation := h.flagship.GetLocation()
+	flagshipLocation := h.publisher.GetLocation()
 	closestDistance := flagshipLocation.GetDistanceBetween(clientGeoPoint)
 
 	for _, escort := range h.escorts {
@@ -237,20 +308,17 @@ func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Ship, error) {
 }
 
 func (h *Haven) Close() {
-	h.flagshipMtx.Lock()
-	defer h.flagshipMtx.Unlock()
+	h.logger.Debug().Msg("Closing Haven")
+
+	h.cancel()
+	h.wg.Wait()
+
+	h.PublisherMtx.Lock()
+	defer h.PublisherMtx.Unlock()
 
 	h.escortMtx.Lock()
 	defer h.escortMtx.Unlock()
 
-	h.logger.Debug().Msg("Closing Haven")
-
-	if h.flagship != nil {
-		h.flagship.SignalClose()
-	}
-
-	for _, escort := range h.escorts {
-		escort.SignalClose()
-	}
-	h.escorts = make([]types.Ship, 0)
+	h.leechMtx.Lock()
+	defer h.leechMtx.Unlock()
 }

@@ -3,14 +3,11 @@ package types
 import (
 	"context"
 	"time"
-
-	"github.com/datarhei/gosrt/packet"
 )
 
 type Buffer interface {
 	Write(frame Frame) error
-	Subscribe(ctx context.Context, ptsOffsetToLive time.Duration) ([]BufferFlow, error)
-	SubscribeInterleaved(ctx context.Context, ptsOffsetToLive time.Duration) ([]BufferFlow, error)
+	Subscribe(ctx context.Context, ptsOffsetToLive time.Duration) ([]BufferOutput, error)
 	IsReady() bool
 	Close()
 }
@@ -18,15 +15,8 @@ type Buffer interface {
 type BufferStream interface {
 	IsReady() bool
 	Write(frame Frame) error
-	Subscribe(ctx context.Context, opts ...SubscribeOption) ([]BufferFlow, error)
+	Subscribe(ctx context.Context, opts ...SubscribeOption) ([]BufferOutput, error)
 	Cancel()
-	Close()
-}
-
-type PacketBuffer interface {
-	Subscribe() chan packet.Packet
-	Unsubscribe(chan packet.Packet)
-	Write(packet.Packet)
 	Close()
 }
 
@@ -71,11 +61,11 @@ func MediaTypeFromString(s string) BufferType {
 	return BufferTypeUnkown
 }
 
-type BufferFlow struct {
-	Type       BufferType
-	Channel    chan Frame
-	Identifier string
-	FirstPTS   time.Duration
+type BufferOutput struct {
+	Title    string
+	Type     BufferType
+	Channel  chan Frame
+	StartPTS time.Duration
 }
 
 type SubscribeConfig struct {

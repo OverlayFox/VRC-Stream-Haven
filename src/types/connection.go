@@ -4,49 +4,45 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+
+	"github.com/datarhei/gosrt/packet"
 )
 
-// ConnectionType represents the type of connection (publisher, subscriber, etc)
 type ConnectionType string
 
 const (
-	ConnectionTypeUnknown  ConnectionType = "unknown"
-	ConnectionTypeFlagship ConnectionType = "flagship"
-	ConnectionTypeEscort   ConnectionType = "escort"
-	ConnectionTypeLeech    ConnectionType = "leech" // Not used yet, but reserved for future use
+	ConnectionTypeUnknown   ConnectionType = "unknown"
+	ConnectionTypePublisher ConnectionType = "publish"
+	ConnectionTypeReader    ConnectionType = "read"
+	ConnectionTypeEscort    ConnectionType = "escort"
+	ConnectionTypeLeech     ConnectionType = "leech"
 )
 
 var connectionTypeStrings = map[string]ConnectionType{
-	"flagship": ConnectionTypeFlagship,
-	"escort":   ConnectionTypeEscort,
-	"leech":    ConnectionTypeLeech,
+	"unknown": ConnectionTypeUnknown,
+	"publish": ConnectionTypePublisher,
+	"read":    ConnectionTypeReader,
+	"escort":  ConnectionTypeEscort,
+	"leech":   ConnectionTypeLeech,
 }
 
-// String implements the Stringer interface
 func (c ConnectionType) String() string {
 	return string(c)
 }
 
-// MarshalJSON implements the json.Marshaler interface
 func (ct ConnectionType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ct.String())
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface
 func (ct *ConnectionType) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := json.Unmarshal(data, &str); err != nil {
 		return err
 	}
-	if t, ok := connectionTypeStrings[str]; ok {
-		*ct = t
-		return nil
-	}
-	*ct = ConnectionTypeUnknown
+	*ct = ConnectionTypeFromString(str)
 	return nil
 }
 
-// ConnectionTypeFromString converts a string to ConnectionType
 func ConnectionTypeFromString(s string) ConnectionType {
 	if t, ok := connectionTypeStrings[s]; ok {
 		return t
@@ -55,16 +51,17 @@ func ConnectionTypeFromString(s string) ConnectionType {
 }
 
 func (c ConnectionType) IsFlagship() bool {
-	return c == ConnectionTypeFlagship
+	return c == ConnectionTypePublisher
 }
 
 type Connection interface {
 	GetAddr() net.Addr
 	GetType() ConnectionType
 	GetCtx() context.Context
+	GetLocation() Location
 
-	Write() error
-	Read() chan Frame
+	Write(packet.Packet)
+	Read() chan packet.Packet
 
-	SignalClose()
+	Close()
 }

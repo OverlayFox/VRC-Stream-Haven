@@ -10,17 +10,17 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// LoggerFactory creates and configures zerolog loggers
+// LoggerFactory creates and configures zerolog loggers.
 type LoggerFactory struct {
 	level      zerolog.Level
 	timeFormat string
 	logDir     string
 }
 
-// NewLoggerFactory creates a new logger factory with default settings
+// NewLoggerFactory creates a new logger factory with default settings.
 func NewLoggerFactory(level zerolog.Level, logDir string) *LoggerFactory {
 	if logDir != "" {
-		if err := os.MkdirAll(logDir, 0755); err != nil {
+		if err := os.MkdirAll(logDir, 0o755); err != nil {
 			fmt.Printf("Failed to create log directory: %v\n", err)
 		}
 	}
@@ -32,11 +32,14 @@ func NewLoggerFactory(level zerolog.Level, logDir string) *LoggerFactory {
 	}
 }
 
-// NewLogger creates a new zerolog.Logger that logs to both console and file
+// NewLogger creates a new zerolog.Logger that logs to both console and file.
 func (f *LoggerFactory) NewLogger(name string) zerolog.Logger {
 	consoleWriter := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: f.timeFormat,
+		PartsExclude: func() []string {
+			return nil
+		}(),
 	}
 
 	writers := []io.Writer{consoleWriter}
@@ -45,7 +48,7 @@ func (f *LoggerFactory) NewLogger(name string) zerolog.Logger {
 		fileName := fmt.Sprintf("%s-%s.log", name, time.Now().Format("2006-01-02"))
 		logFilePath := filepath.Join(f.logDir, fileName)
 
-		logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			fmt.Printf("Failed to open log file: %v\n", err)
 		} else {
@@ -55,6 +58,8 @@ func (f *LoggerFactory) NewLogger(name string) zerolog.Logger {
 
 	multiWriter := io.MultiWriter(writers...)
 
+	// Set global level for zerolog to ensure console output respects it
+	zerolog.SetGlobalLevel(f.level)
 	logger := zerolog.New(multiWriter).
 		Level(f.level).
 		With().

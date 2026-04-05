@@ -1,12 +1,6 @@
 package types
 
-type RtspProtocolServer interface {
+type ProtocolServer interface {
 	Start()
 	Close()
-}
-
-type SrtProtocolServer interface {
-	Start()
-	Close()
-	Call(address string) error
 }

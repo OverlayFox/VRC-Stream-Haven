@@ -1,6 +1,7 @@
 package rtsp
 
 import (
+	"errors"
 	"strings"
 	"sync"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
-	"github.com/pion/rtp"
 	"github.com/rs/zerolog"
 )
 
@@ -94,7 +94,7 @@ func (sh *Connection) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 
 		escort, err := sh.haven.GetClosestEscort(clientIp)
 		if err != nil {
-			if err == types.ErrEscortsNotAvailable {
+			if errors.Is(err, types.ErrEscortsNotAvailable) {
 				return &base.Response{
 					StatusCode: base.StatusOK,
 				}, sh.stream, nil
@@ -105,11 +105,11 @@ func (sh *Connection) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 			}, nil, nil
 		}
 
-		sh.logger.Info().Msgf("redirecting client '%s' to escort '%s'", clientIp.String(), escort.GetIp())
+		sh.logger.Info().Msgf("redirecting client '%s' to escort '%s'", clientIp.String(), escort.GetAddr().String())
 		return &base.Response{
 			StatusCode: base.StatusMovedPermanently,
 			Header: base.Header{
-				"Location": base.HeaderValue{"rtsp://" + escort.GetIp().String() + ctx.Path},
+				"Location": base.HeaderValue{"rtsp://" + escort.GetAddr().String() + ctx.Path},
 			},
 		}, nil, nil
 	}
@@ -176,7 +176,7 @@ func (sh *Connection) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 	}, nil
 }
 
-func (sh *Connection) WritePacketRTP(media *description.Media, packet *rtp.Packet) error {
+func (sh *Connection) WritePacketRTP(frame types.Frame) error {
 	if sh.stream == nil {
 		sh.stream = &gortsplib.ServerStream{
 			Server: sh.server,
@@ -204,10 +204,16 @@ func (sh *Connection) WritePacketRTP(media *description.Media, packet *rtp.Packe
 			},
 		}
 	}
-	// rtpEncoder, err := sh.stream.Desc.Medias[0].Formats[0].(*format.H264).CreateEncoder()
+	// h264Encoder, err := sh.stream.Desc.Medias[0].Formats[0].(*format.H264).CreateEncoder()
+	// if err != nil {
+	// 	return err
+	// }
+	// aacEncoder, err := sh.stream.Desc.Medias[1].Formats[0].(*format.MPEG4Audio).CreateEncoder()
 	// if err != nil {
 	// 	return err
 	// }
 
-	return sh.stream.WritePacketRTP(media, packet)
+	// return sh.stream.WritePacketRTP()
+
+	return nil
 }

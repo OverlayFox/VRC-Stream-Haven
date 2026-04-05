@@ -50,7 +50,7 @@ func (f FrameFormat) String() string {
 	}
 }
 
-// FrameHeap implements heap.Interface for types.Frame, ordered by DTS
+// FrameHeap implements heap.Interface for types.Frame, ordered by DTS.
 type FrameHeap []Frame
 
 // Len returns the number of elements in the heap.
