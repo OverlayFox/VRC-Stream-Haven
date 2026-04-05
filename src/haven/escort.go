@@ -16,7 +16,7 @@ func NewEscort(srtSession types.MediaSession) (types.Escort, error) {
 		MediaSession: srtSession,
 	}
 
-	location, err := geo.GetPublicLocation(srtSession.GetAddr())
+	location, err := geo.GetLocation(srtSession.GetAddr())
 	if err != nil {
 		return nil, err
 	}
