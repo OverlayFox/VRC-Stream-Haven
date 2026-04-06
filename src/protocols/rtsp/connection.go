@@ -21,7 +21,9 @@ type Connection struct {
 	server *gortsplib.Server
 	stream *gortsplib.ServerStream
 
-	haven types.Haven
+	haven    types.Haven
+	locator  types.Locator
+	location types.Location
 
 	isFlagship bool
 	rtpEncoder *rtph264.Encoder
@@ -31,7 +33,14 @@ type Connection struct {
 
 // OnConnOpen is called when a connection is opened.
 func (sh *Connection) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	sh.logger.Info().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp connection opened")
+	location, err := sh.locator.GetLocation(ctx.Conn.NetConn().RemoteAddr())
+	if err != nil {
+		sh.logger.Error().Err(err).Msg("failed to get location")
+		sh.location = types.Location{}
+	} else {
+		sh.location = location
+	}
+	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp connection opened")
 }
 
 // OnConnClose is called when a connection is closed.

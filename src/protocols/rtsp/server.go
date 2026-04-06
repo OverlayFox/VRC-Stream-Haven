@@ -1,6 +1,7 @@
 package rtsp
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -18,7 +19,7 @@ type Server struct {
 	wg sync.WaitGroup
 }
 
-func New(config Config, haven types.Haven, logger zerolog.Logger) (types.ProtocolServer, error) {
+func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, haven types.Haven, locator types.Locator) (types.ProtocolServer, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -27,6 +28,7 @@ func New(config Config, haven types.Haven, logger zerolog.Logger) (types.Protoco
 		logger:     logger,
 		isFlagship: config.IsFlagship,
 		haven:      haven,
+		locator:    locator,
 	}
 	h.server = &gortsplib.Server{
 		Handler:     h,

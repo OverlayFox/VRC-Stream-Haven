@@ -52,8 +52,8 @@ func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven typ
 
 	c.location, err = locator.GetLocation(connReq.RemoteAddr())
 	if err != nil {
-		connReq.Reject(goSrt.REJ_IPE)
-		return nil, err
+		c.logger.Error().Err(err).Msg("failed to get location for new connection")
+		c.location = types.Location{}
 	}
 	c.connType = streamID.connectionType
 

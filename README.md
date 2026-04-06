@@ -72,13 +72,15 @@ VRC-Stream-Haven uses the [IP2Location LITE database](https://lite.ip2location.c
 
 **Setup Steps:**
 
-1. Create a free account at [IP2Location LITE](https://lite.ip2location.com)
-2. Navigate to the [Database Download](https://lite.ip2location.com/database-download) page
-3. Copy your `Download Token`
-4. Create a `variables.txt` file in the same directory as the executable
-5. Add your token to the file:
+1. Create a free account at [MaxMind](https://www.maxmind.com/en/geolite2/signup)
+2. Navigate to the `Manage license keys` page
+3. Click on `Generate new license key` - This is free to do
+4. Give it a unique name
+5. Once created, copy the `Account ID` and `License key`
+6. Add your key to the config file:
    ```
-   IP2LocationDownloadToken=YOUR_TOKEN_HERE
+   MaxMindAccountID=YOUR_ACCOUNT_ID_HERE
+   MaxMindLicenseKey=YOUR_KEY_HERE
    ```
 
 The application will automatically check for and download database updates on startup.
@@ -132,4 +134,4 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
 
 ## Acknowledgments
 
-- [IP2Location](https://lite.ip2location.com) for providing the geolocation database
+- [MaxMind](https://www.maxmind.com) for providing the geolocation database

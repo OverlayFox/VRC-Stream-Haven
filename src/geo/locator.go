@@ -1,8 +1,9 @@
 package geo
 
 import (
-	"archive/zip"
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -21,22 +22,24 @@ import (
 )
 
 const (
-	defaultTimeout   = 5 * time.Second
-	defaultDBDir     = "./ip2LocatorFiles"
-	dbMaxAge         = 30 * 24 * time.Hour // 30 days
-	downloadURLTempl = "https://www.ip2location.com/download/?token=%s&file=DB9LITEMMDB"
+	defaultTimeout = 30 * time.Second
+	defaultDBDir   = "./geoip2Files"
+	dbMaxAge       = 7 * 24 * time.Hour // 1 week
+	downloadURL    = "https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz"
 )
 
 type Config struct {
-	Token string
-	Dir   string
+	LicenseKey string
+	AccountID  string
+	Dir        string
 }
 
 // Locator handles IP-to-Location lookups via the local Database.
 type Locator struct {
-	logger zerolog.Logger
-	dbDir  string
-	token  string
+	logger     zerolog.Logger
+	dbDir      string
+	licenseKey string
+	accountID  string
 
 	db    *geoip2.Reader
 	dbMtx sync.RWMutex
@@ -57,7 +60,8 @@ func NewLocator(upstreamCtx context.Context, logger zerolog.Logger, config Confi
 		cancel: cancel,
 	}
 	l.dbDir = config.Dir
-	l.token = config.Token
+	l.licenseKey = config.LicenseKey
+	l.accountID = config.AccountID
 
 	return l, l.loadDatabase()
 }
@@ -108,6 +112,9 @@ func (l *Locator) Close() error {
 func (l *Locator) loadDatabase() error {
 	entries, err := os.ReadDir(l.dbDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return l.updateDatabase()
+		}
 		return err
 	}
 
@@ -137,12 +144,12 @@ func (l *Locator) loadDatabase() error {
 func (l *Locator) mountDatabase(path string) error {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read database file: %w", err)
 	}
 
 	db, err := geoip2.FromBytes(bytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load database: %w", err)
 	}
 
 	l.dbMtx.Lock()
@@ -151,7 +158,7 @@ func (l *Locator) mountDatabase(path string) error {
 	if l.db != nil {
 		err = l.db.Close()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to close old database: %w", err)
 		}
 	}
 	l.db = db
@@ -164,26 +171,26 @@ func (l *Locator) updateDatabase() error {
 
 	zipBytes, err := l.downloadDatabase()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to download database file: %w", err)
 	}
 
 	mmdbBytes, err := extractMMDB(zipBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to extract .mmdb file: %w", err)
 	}
 
 	if err := os.MkdirAll(l.dbDir, 0o750); err != nil {
-		return err
+		return fmt.Errorf("failed to make directory: %w", err)
 	}
 
 	filename := fmt.Sprintf("%s_bd9lite.mmdb", time.Now().Format("2006_01_02"))
 	fullPath := filepath.Join(l.dbDir, filename)
 	if err := os.WriteFile(fullPath, mmdbBytes, 0o600); err != nil {
-		return err
+		return fmt.Errorf("failed to write .mmdb file: %w", err)
 	}
 
 	if err := l.mountDatabase(fullPath); err != nil {
-		return err
+		return fmt.Errorf("failed to load new database: %w", err)
 	}
 
 	l.logger.Info().Msg("Database updated successfully")
@@ -191,14 +198,13 @@ func (l *Locator) updateDatabase() error {
 }
 
 func (l *Locator) downloadDatabase() ([]byte, error) {
-	url := fmt.Sprintf(downloadURLTempl, l.token)
-
 	httpClient := &http.Client{Timeout: defaultTimeout}
 
-	req, err := http.NewRequestWithContext(l.ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(l.ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return nil, err
 	}
+	req.SetBasicAuth(l.accountID, l.licenseKey)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -210,23 +216,41 @@ func (l *Locator) downloadDatabase() ([]byte, error) {
 		return nil, fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check if response is a tar.gz file
+	if len(body) < 2 || body[0] != 0x1f || body[1] != 0x8B {
+		errorMsg := strings.TrimSpace(string(body))
+		if len(errorMsg) > 200 {
+			errorMsg = errorMsg[:200] + "..."
+		}
+		return nil, fmt.Errorf("API returned error instead of tar.gz file: %s", errorMsg)
+	}
+
+	return body, nil
 }
 
-func extractMMDB(zipData []byte) ([]byte, error) {
-	zipReader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+func extractMMDB(tarGzData []byte) ([]byte, error) {
+	gzReader, err := gzip.NewReader(bytes.NewReader(tarGzData))
 	if err != nil {
 		return nil, err
 	}
+	defer gzReader.Close()
 
-	for _, file := range zipReader.File {
-		if strings.HasSuffix(strings.ToLower(file.Name), ".mmdb") {
-			rc, err := file.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-			return io.ReadAll(rc)
+	tarReader := tar.NewReader(gzReader)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tar: %w", err)
+		}
+		if strings.HasSuffix(strings.ToLower(header.Name), ".mmdb") {
+			return io.ReadAll(tarReader)
 		}
 	}
 	return nil, errors.New("no .mmdb found in archive")
