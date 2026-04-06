@@ -12,15 +12,15 @@ type Buffer interface {
 	Close()
 }
 
-type BufferStream interface {
+type SubBuffer interface {
 	IsReady() bool
 	Write(frame Frame) error
-	Subscribe(ctx context.Context, opts ...SubscribeOption) ([]BufferOutput, error)
+	Subscribe(ctx context.Context, opts *SubscribeBuilder) ([]BufferOutput, error)
 	Cancel()
 	Close()
 }
 
-// MediaType represents the type of a media stream.
+// BufferType represents the type of a media stream.
 type BufferType int
 
 const (
@@ -68,22 +68,23 @@ type BufferOutput struct {
 	StartPTS time.Duration
 }
 
-type SubscribeConfig struct {
+type SubscribeBuilder struct {
 	PTSOffsetToLive *time.Duration
 	DesiredPTSStart *time.Duration
 }
 
-type SubscribeOption func(*SubscribeConfig)
-
-func SubscribeOptionWithPTSOffsetToLive(offset time.Duration) SubscribeOption {
-	return func(cfg *SubscribeConfig) {
-		cfg.PTSOffsetToLive = &offset
-	}
+func NewSubscribeBuilder() *SubscribeBuilder {
+	return &SubscribeBuilder{}
 }
 
-func SubscribeOptionWithPTSOffsetToLiveAndWithPTSStart(start, offset time.Duration) SubscribeOption {
-	return func(cfg *SubscribeConfig) {
-		cfg.DesiredPTSStart = &start
-		cfg.PTSOffsetToLive = &offset
-	}
+func (s *SubscribeBuilder) WithPTSOffsetToLive(offset time.Duration) *SubscribeBuilder {
+	s.DesiredPTSStart = nil
+	s.PTSOffsetToLive = &offset
+	return s
+}
+
+func (s *SubscribeBuilder) WithPTSStart(start time.Duration) *SubscribeBuilder {
+	s.DesiredPTSStart = &start
+	s.PTSOffsetToLive = nil
+	return s
 }

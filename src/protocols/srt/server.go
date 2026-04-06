@@ -20,7 +20,8 @@ type server struct {
 	logger zerolog.Logger
 	config Config
 
-	haven types.Haven
+	haven   types.Haven
+	locator types.Locator
 
 	listener goSrt.Listener
 
@@ -29,18 +30,20 @@ type server struct {
 	cancel context.CancelFunc
 }
 
-func New(logger zerolog.Logger, config Config, haven types.Haven) (types.ProtocolServer, error) {
-	listener, err := goSrt.Listen("srt", fmt.Sprintf("%s:%d", config.Address, config.Port), goSrt.DefaultConfig())
+func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, haven types.Haven, locator types.Locator) (types.ProtocolServer, error) {
+	listener, err := goSrt.Listen("srt", fmt.Sprintf("%s:%d", config.Address, config.Port), goSrt.DefaultConfig()) // TODO: Optimise DefaultConfig() for large WAN hops
 	if err != nil {
-		return nil, fmt.Errorf("failed to start SRT listener: %w", err)
+		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(upstreamCtx)
 	s := &server{
-		logger: logger,
+		logger: logger.With().Str("protocol", "srt").Logger(),
 		config: config,
 
-		haven:    haven,
+		haven:   haven,
+		locator: locator,
+
 		listener: listener,
 
 		ctx:    ctx,
@@ -81,8 +84,9 @@ func (s *server) Start() {
 			case req := <-acceptCh:
 				connectionLogger := s.logger.With().Str("remote_addr", req.RemoteAddr().String()).Str("stream_id", req.StreamId()).Logger()
 				connectionLogger.Info().Msg("Accepted new SRT connection")
+
 				go func() {
-					conn, err := NewConnection(connectionLogger, s.ctx, s.haven, req)
+					conn, err := NewConnection(s.ctx, connectionLogger, s.haven, s.locator, req)
 					if err != nil {
 						connectionLogger.Error().Err(err).Msg("Failed to handle SRT connection")
 						return

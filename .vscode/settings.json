@@ -1,7 +1,7 @@
 {
   "go.lintTool": "golangci-lint",
   "go.lintOnSave": "package",
-  "go.lintFlags": ["--config=${workspaceFolder}/.golangci.yaml"],
+  "go.lintFlags": ["--config=${workspaceFolder}/.golangci.yaml", "--fix"],
   "[go]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
@@ -10,6 +10,7 @@
     }
   },
   "go.formatTool": "goimports",
+  "go.goimportsLocalPrefix": "github.com/OverlayFox/VRC-Stream-Haven",
   "go.coverageDecorator": {
     "type": "gutter",
     "coveredHighlightColor": "rgba(64,128,64,0.5)",

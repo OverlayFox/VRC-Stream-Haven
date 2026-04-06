@@ -3,13 +3,10 @@ package haven
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
 	"sync"
 	"time"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/buffer"
-	"github.com/OverlayFox/VRC-Stream-Haven/src/geo"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/datarhei/gosrt/packet"
@@ -24,14 +21,16 @@ type Haven struct {
 
 	publisher types.Connection   // publisher provides the main stream
 	escorts   []types.Connection // escorts are nodes that relay the publisher's stream to viewers
-	leeches   []types.Connection // leeches are nodes that only consume the stream and don't relay it
+	viewers   []types.Connection // viewers are clients that simply view the stream via RTSP
 
-	PublisherMtx sync.RWMutex
+	publisherMtx sync.RWMutex
 	escortMtx    sync.RWMutex
-	leechMtx     sync.RWMutex
+	viewersMtx   sync.RWMutex
 
 	demuxer *multiplexer.MpegTsDemuxer
 	buffer  types.Buffer
+
+	locator types.Locator
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -40,15 +39,15 @@ type Haven struct {
 
 var _ types.Haven = (*Haven)(nil)
 
-func NewHaven(passphrase, streamID string, logger zerolog.Logger) (types.Haven, error) {
+func NewHaven(upstreamCtx context.Context, logger zerolog.Logger, locator types.Locator, passphrase, streamID string) (types.Haven, error) {
 	demuxerConfig := multiplexer.Settings{
 		InputBufferCap:  100,
 		OutputBufferCap: 200,
 		AudioDriftLimit: 20 * time.Millisecond,
 	}
-	demuxer := multiplexer.NewMpegTsDemuxer(logger.With().Str("component", "ts_demuxer").Logger(), demuxerConfig, context.Background())
-
 	ctx, cancel := context.WithCancel(context.Background())
+	demuxer := multiplexer.NewMpegTsDemuxer(ctx, logger, demuxerConfig)
+
 	return &Haven{
 		logger: logger,
 
@@ -57,10 +56,12 @@ func NewHaven(passphrase, streamID string, logger zerolog.Logger) (types.Haven, 
 
 		publisher: nil,
 		escorts:   make([]types.Connection, 0),
-		leeches:   make([]types.Connection, 0),
+		viewers:   make([]types.Connection, 0),
 
 		demuxer: demuxer,
-		buffer:  buffer.NewBuffer(logger.With().Str("component", fmt.Sprintf("%s_buffer", streamID)).Logger()),
+		buffer:  buffer.NewBuffer(logger),
+
+		locator: locator,
 
 		ctx:    ctx,
 		cancel: cancel,
@@ -76,8 +77,8 @@ func (h *Haven) GetPassphrase() string {
 }
 
 func (h *Haven) GetPublisher() (types.Connection, error) {
-	h.PublisherMtx.RLock()
-	defer h.PublisherMtx.RUnlock()
+	h.publisherMtx.RLock()
+	defer h.publisherMtx.RUnlock()
 
 	if h.publisher == nil {
 		return nil, types.ErrPublisherNotFound
@@ -89,8 +90,6 @@ func (h *Haven) AddConnection(conn types.Connection) error {
 	switch conn.GetType() {
 	case types.ConnectionTypeEscort:
 		return h.addEscort(conn)
-	case types.ConnectionTypeLeech:
-		return h.addLeech(conn)
 	case types.ConnectionTypePublisher:
 		return h.addPublisher(conn)
 	default:
@@ -98,9 +97,67 @@ func (h *Haven) AddConnection(conn types.Connection) error {
 	}
 }
 
+func (h *Haven) GetClosestEscort(location types.Location) (types.Connection, error) {
+	if len(h.escorts) == 0 {
+		return nil, types.ErrEscortsNotAvailable
+	}
+
+	var closestEscort types.Connection
+	clientGeoPoint := location.GetGeoPoint()
+	flagshipLocation := h.publisher.GetLocation()
+	closestDistance := flagshipLocation.GetDistanceBetween(clientGeoPoint)
+
+	for _, escort := range h.escorts {
+		escortLocation := escort.GetLocation()
+		distance := escortLocation.GetDistanceBetween(clientGeoPoint)
+
+		if distance < closestDistance {
+			closestDistance = distance
+			closestEscort = escort
+		}
+	}
+
+	if closestEscort == nil {
+		return nil, types.ErrEscortsNotAvailable
+	}
+
+	return closestEscort, nil
+}
+
+func (h *Haven) Close() {
+	h.logger.Debug().Msg("Closing Haven")
+
+	h.cancel()
+	h.wg.Wait()
+
+	h.publisherMtx.Lock()
+	defer h.publisherMtx.Unlock()
+	if h.publisher != nil {
+		h.publisher.Close()
+		h.publisher = nil
+	}
+
+	h.escortMtx.Lock()
+	defer h.escortMtx.Unlock()
+	for _, escort := range h.escorts {
+		escort.Close()
+	}
+	h.escorts = make([]types.Connection, 0)
+
+	h.viewersMtx.Lock()
+	defer h.viewersMtx.Unlock()
+	for _, viewer := range h.viewers {
+		viewer.Close()
+	}
+	h.viewers = make([]types.Connection, 0)
+
+	h.buffer.Close()
+	h.demuxer.Close()
+}
+
 func (h *Haven) addPublisher(conn types.Connection) error {
-	h.PublisherMtx.Lock()
-	defer h.PublisherMtx.Unlock()
+	h.publisherMtx.Lock()
+	defer h.publisherMtx.Unlock()
 
 	if h.publisher != nil {
 		return types.ErrPublisherAlreadyExists
@@ -126,20 +183,21 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 			}
 			h.escorts = make([]types.Connection, 0)
 
-			h.leechMtx.Lock()
-			defer h.leechMtx.Unlock()
-			for _, leech := range h.leeches {
-				h.logger.Info().Msgf("Closing leech '%s' as publisher has disconnected", leech.GetAddr().String())
-				leech.Close()
+			h.viewersMtx.Lock()
+			defer h.viewersMtx.Unlock()
+			for _, viewer := range h.viewers {
+				h.logger.Info().Msgf("Closing viewer '%s' as publisher has disconnected", viewer.GetAddr().String())
+				viewer.Close()
 			}
-			h.leeches = make([]types.Connection, 0)
+			h.viewers = make([]types.Connection, 0)
 
-			h.PublisherMtx.Lock()
-			defer h.PublisherMtx.Unlock()
+			h.publisherMtx.Lock()
+			defer h.publisherMtx.Unlock()
 			h.publisher = nil
 		}
 	})
 
+	// Start reading from the publisher and writing to the buffer and demuxer
 	go func() {
 		packetCh := h.publisher.Read()
 		demuxerPktCh := make(chan packet.Packet, 100)
@@ -193,7 +251,6 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 					escortClone := p.Clone()
 					escort.Write(escortClone)
 				}
-
 				p.Decommission()
 			}
 		}
@@ -203,12 +260,12 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 }
 
 func (h *Haven) addEscort(conn types.Connection) error {
-	h.PublisherMtx.RLock()
+	h.publisherMtx.RLock()
 	if h.publisher == nil {
-		h.PublisherMtx.RUnlock()
+		h.publisherMtx.RUnlock()
 		return types.ErrPublisherNotFound
 	}
-	h.PublisherMtx.RUnlock()
+	h.publisherMtx.RUnlock()
 
 	h.escorts = append(h.escorts, conn)
 
@@ -234,94 +291,4 @@ func (h *Haven) addEscort(conn types.Connection) error {
 	})
 
 	return nil
-}
-
-func (h *Haven) TooManyEscorts() bool {
-	h.escortMtx.RLock()
-	defer h.escortMtx.RUnlock()
-
-	// TODO: Make this configurable
-	return len(h.escorts) >= 10
-}
-
-func (h *Haven) addLeech(conn types.Connection) error {
-	h.PublisherMtx.RLock()
-	if h.publisher == nil {
-		h.PublisherMtx.RUnlock()
-		return types.ErrPublisherNotFound
-	}
-	h.PublisherMtx.RUnlock()
-
-	h.leechMtx.Lock()
-	defer h.leechMtx.Unlock()
-	h.leeches = append(h.leeches, conn)
-
-	// Monitor the leech's context and remove it from the map when it is done
-	h.wg.Go(func() {
-		select {
-		case <-h.ctx.Done():
-			h.logger.Debug().Msgf("Haven context done, closing leech '%s'", conn.GetAddr().String())
-			conn.Close()
-
-		case <-conn.GetCtx().Done():
-			h.logger.Debug().Msgf("Leech context done, removing leech '%s' from haven", conn.GetAddr().String())
-
-			for i, l := range h.leeches {
-				if l == conn {
-					h.leeches = append(h.leeches[:i], h.leeches[i+1:]...)
-					break
-				}
-			}
-		}
-	})
-
-	return nil
-}
-
-func (h *Haven) GetClosestEscort(clientAddr net.Addr) (types.Connection, error) {
-	if len(h.escorts) <= 0 {
-		return nil, types.ErrEscortsNotAvailable
-	}
-
-	clientLocation, err := geo.GetPublicLocation(clientAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	var closestEscort types.Connection
-	clientGeoPoint := clientLocation.GetGeoPoint()
-	flagshipLocation := h.publisher.GetLocation()
-	closestDistance := flagshipLocation.GetDistanceBetween(clientGeoPoint)
-
-	for _, escort := range h.escorts {
-		escortLocation := escort.GetLocation()
-		distance := escortLocation.GetDistanceBetween(clientGeoPoint)
-
-		if distance < closestDistance {
-			closestDistance = distance
-			closestEscort = escort
-		}
-	}
-
-	if closestEscort == nil {
-		return nil, types.ErrEscortsNotAvailable
-	}
-
-	return closestEscort, nil
-}
-
-func (h *Haven) Close() {
-	h.logger.Debug().Msg("Closing Haven")
-
-	h.cancel()
-	h.wg.Wait()
-
-	h.PublisherMtx.Lock()
-	defer h.PublisherMtx.Unlock()
-
-	h.escortMtx.Lock()
-	defer h.escortMtx.Unlock()
-
-	h.leechMtx.Lock()
-	defer h.leechMtx.Unlock()
 }

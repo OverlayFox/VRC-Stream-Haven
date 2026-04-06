@@ -4,14 +4,13 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,92 +24,46 @@ const (
 	defaultTimeout   = 5 * time.Second
 	defaultDBDir     = "./ip2LocatorFiles"
 	dbMaxAge         = 30 * 24 * time.Hour // 30 days
-	downloadUrlTempl = "https://www.ip2location.com/download/?token=%s&file=DB9LITEMMDB"
+	downloadURLTempl = "https://www.ip2location.com/download/?token=%s&file=DB9LITEMMDB"
 )
 
-// Locator handles IP-to-Location lookups via Database or API fallbacks.
+type Config struct {
+	Token string
+	Dir   string
+}
+
+// Locator handles IP-to-Location lookups via the local Database.
 type Locator struct {
-	logger     zerolog.Logger
-	httpClient *http.Client
-	dbDir      string
-	token      string
+	logger zerolog.Logger
+	dbDir  string
+	token  string
 
 	db    *geoip2.Reader
 	dbMtx sync.RWMutex
-}
 
-type Option func(*Locator)
-
-func WithToken(token string) Option {
-	return func(l *Locator) {
-		l.token = token
-	}
-}
-
-func WithStorageDir(path string) Option {
-	return func(l *Locator) {
-		l.dbDir = path
-	}
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewLocator creates a new Locator. It attempts to load a local DB immediately.
 // If the DB is missing or old, and a token is provided, it triggers a background update.
-func NewLocator(logger zerolog.Logger, opts ...Option) (*Locator, error) {
+func NewLocator(upstreamCtx context.Context, logger zerolog.Logger, config Config) (*Locator, error) {
+	ctx, cancel := context.WithCancel(upstreamCtx)
 	l := &Locator{
 		logger: logger,
-		httpClient: &http.Client{
-			Timeout: defaultTimeout,
-		},
-		dbDir: defaultDBDir,
-	}
+		dbDir:  defaultDBDir,
 
-	for _, opt := range opts {
-		opt(l)
+		ctx:    ctx,
+		cancel: cancel,
 	}
+	l.dbDir = config.Dir
+	l.token = config.Token
 
-	if err := l.loadLocalDatabase(); err != nil {
-		l.logger.Debug().Err(err).Msg("Local database not available or too old")
-	}
-
-	if l.token != "" {
-		go l.updateDatabaseBackground()
-	}
-
-	return l, nil
+	return l, l.loadDatabase()
 }
 
 // GetLocation returns the latitude and longitude for a given network address.
 func (l *Locator) GetLocation(addr net.Addr) (types.Location, error) {
-	l.dbMtx.RLock()
-	db := l.db
-	l.dbMtx.RUnlock()
-
-	if db != nil {
-		loc, err := l.lookupDatabase(db, addr)
-		if err == nil {
-			return loc, nil
-		}
-		l.logger.Warn().Err(err).Msg("Database lookup failed, falling back to API")
-	}
-
-	return l.lookupAPI(addr)
-}
-
-// Close cleans up resources.
-func (l *Locator) Close() error {
-	l.dbMtx.Lock()
-	defer l.dbMtx.Unlock()
-	if l.db != nil {
-		return l.db.Close()
-	}
-	return nil
-}
-
-//
-// Database Logic
-//
-
-func (l *Locator) lookupDatabase(db *geoip2.Reader, addr net.Addr) (types.Location, error) {
 	ipStr, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
 		ipStr = addr.String()
@@ -121,13 +74,15 @@ func (l *Locator) lookupDatabase(db *geoip2.Reader, addr net.Addr) (types.Locati
 		return types.Location{}, fmt.Errorf("invalid IP address: %s", ipStr)
 	}
 
-	record, err := db.City(ip)
+	l.dbMtx.RLock()
+	defer l.dbMtx.RUnlock()
+
+	record, err := l.db.City(ip)
 	if err != nil {
 		return types.Location{}, err
 	}
-
 	if record.Location.Latitude == 0 && record.Location.Longitude == 0 {
-		return types.Location{}, fmt.Errorf("ip not found in database")
+		return types.Location{}, errors.New("ip not found in database")
 	}
 
 	return types.Location{
@@ -136,7 +91,21 @@ func (l *Locator) lookupDatabase(db *geoip2.Reader, addr net.Addr) (types.Locati
 	}, nil
 }
 
-func (l *Locator) loadLocalDatabase() error {
+// Close cleans up resources.
+func (l *Locator) Close() error {
+	l.cancel()
+
+	l.dbMtx.Lock()
+	defer l.dbMtx.Unlock()
+
+	if l.db != nil {
+		return l.db.Close()
+	}
+	return nil
+}
+
+// loadDatabase finds the newest .mmdb file in the dbDir, checks its age, and loads it if valid.
+func (l *Locator) loadDatabase() error {
 	entries, err := os.ReadDir(l.dbDir)
 	if err != nil {
 		return err
@@ -158,12 +127,8 @@ func (l *Locator) loadLocalDatabase() error {
 		}
 	}
 
-	if newestFile == "" {
-		return fmt.Errorf("no database files found")
-	}
-
-	if time.Since(newestTime) > dbMaxAge {
-		return fmt.Errorf("database file is expired")
+	if newestFile == "" || time.Since(newestTime) > dbMaxAge {
+		return l.updateDatabase()
 	}
 
 	return l.mountDatabase(newestFile)
@@ -184,50 +149,58 @@ func (l *Locator) mountDatabase(path string) error {
 	defer l.dbMtx.Unlock()
 
 	if l.db != nil {
-		l.db.Close()
+		err = l.db.Close()
+		if err != nil {
+			return err
+		}
 	}
 	l.db = db
+
 	return nil
 }
 
-func (l *Locator) updateDatabaseBackground() {
-	l.logger.Info().Msg("Starting background database update")
+func (l *Locator) updateDatabase() error {
+	l.logger.Info().Msg("Database is too old, updating....")
 
 	zipBytes, err := l.downloadDatabase()
 	if err != nil {
-		l.logger.Error().Err(err).Msg("Failed to download database")
-		return
+		return err
 	}
 
 	mmdbBytes, err := extractMMDB(zipBytes)
 	if err != nil {
-		l.logger.Error().Err(err).Msg("Failed to extract database from zip")
-		return
+		return err
 	}
 
-	if err := os.MkdirAll(l.dbDir, 0755); err != nil {
-		l.logger.Error().Err(err).Msg("Failed to create db directory")
-		return
+	if err := os.MkdirAll(l.dbDir, 0o750); err != nil {
+		return err
 	}
 
 	filename := fmt.Sprintf("%s_bd9lite.mmdb", time.Now().Format("2006_01_02"))
 	fullPath := filepath.Join(l.dbDir, filename)
-	if err := os.WriteFile(fullPath, mmdbBytes, 0644); err != nil {
-		l.logger.Error().Err(err).Msg("Failed to save database file")
-		return
+	if err := os.WriteFile(fullPath, mmdbBytes, 0o600); err != nil {
+		return err
 	}
 
 	if err := l.mountDatabase(fullPath); err != nil {
-		l.logger.Error().Err(err).Msg("Failed to mount new database")
-		return
+		return err
 	}
 
 	l.logger.Info().Msg("Database updated successfully")
+	return nil
 }
 
 func (l *Locator) downloadDatabase() ([]byte, error) {
-	url := fmt.Sprintf(downloadUrlTempl, l.token)
-	resp, err := l.httpClient.Get(url)
+	url := fmt.Sprintf(downloadURLTempl, l.token)
+
+	httpClient := &http.Client{Timeout: defaultTimeout}
+
+	req, err := http.NewRequestWithContext(l.ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -256,126 +229,5 @@ func extractMMDB(zipData []byte) ([]byte, error) {
 			return io.ReadAll(rc)
 		}
 	}
-	return nil, fmt.Errorf("no .mmdb found in archive")
-}
-
-//
-// API Logic
-//
-
-type provider struct {
-	url       string
-	parseFunc func([]byte) (types.Location, error)
-}
-
-func (l *Locator) lookupAPI(addr net.Addr) (types.Location, error) {
-	ipStr, _, err := net.SplitHostPort(addr.String())
-	if err != nil {
-		ipStr = addr.String()
-	}
-	parsedIP := net.ParseIP(ipStr)
-
-	// Determine providers based on IP type
-	// If Private/Loopback, we want the public IP of THIS machine (no IP arg in URL)
-	// If Public, we want the location of THAT IP (IP arg in URL)
-	isSelfLookup := parsedIP == nil || parsedIP.IsPrivate() || parsedIP.IsLoopback() || parsedIP.IsUnspecified()
-	providers := l.getProviders(isSelfLookup, ipStr)
-
-	var lastErr error
-	for _, p := range providers {
-		loc, err := l.fetchFromProvider(p)
-		if err == nil {
-			return loc, nil
-		}
-		lastErr = err
-		l.logger.Debug().Err(err).Str("url", p.url).Msg("API provider failed, trying next")
-	}
-
-	return types.Location{}, fmt.Errorf("all API providers failed, last error: %v", lastErr)
-}
-
-func (l *Locator) fetchFromProvider(p provider) (types.Location, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", p.url, nil)
-	if err != nil {
-		return types.Location{}, err
-	}
-
-	resp, err := l.httpClient.Do(req)
-	if err != nil {
-		return types.Location{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return types.Location{}, fmt.Errorf("status code %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return types.Location{}, err
-	}
-
-	return p.parseFunc(body)
-}
-
-func (l *Locator) getProviders(isSelfLookup bool, targetIP string) []provider {
-	u := func(base, path string) string {
-		if isSelfLookup {
-			return base
-		}
-		return fmt.Sprintf(path, targetIP)
-	}
-
-	return []provider{
-		{
-			url: u("http://ip-api.com/json/", "http://ip-api.com/json/%s"),
-			parseFunc: func(b []byte) (types.Location, error) {
-				var r struct {
-					Lat float64 `json:"lat"`
-					Lon float64 `json:"lon"`
-				}
-				if err := json.Unmarshal(b, &r); err != nil {
-					return types.Location{}, err
-				}
-				if r.Lat == 0 && r.Lon == 0 {
-					return types.Location{}, fmt.Errorf("empty coords")
-				}
-				return types.Location{Latitude: r.Lat, Longitude: r.Lon}, nil
-			},
-		},
-		{
-			url: u("http://ipwho.is/", "http://ipwho.is/%s"),
-			parseFunc: func(b []byte) (types.Location, error) {
-				var r struct {
-					Lat float64 `json:"latitude"`
-					Lon float64 `json:"longitude"`
-				}
-				if err := json.Unmarshal(b, &r); err != nil {
-					return types.Location{}, err
-				}
-				return types.Location{Latitude: r.Lat, Longitude: r.Lon}, nil
-			},
-		},
-		{
-			url: u("https://ipinfo.io/json", "https://ipinfo.io/%s/json"),
-			parseFunc: func(b []byte) (types.Location, error) {
-				var r struct {
-					Loc string `json:"loc"`
-				}
-				if err := json.Unmarshal(b, &r); err != nil {
-					return types.Location{}, err
-				}
-				parts := strings.Split(r.Loc, ",")
-				if len(parts) != 2 {
-					return types.Location{}, fmt.Errorf("invalid loc format")
-				}
-				lat, _ := strconv.ParseFloat(parts[0], 64)
-				lon, _ := strconv.ParseFloat(parts[1], 64)
-				return types.Location{Latitude: lat, Longitude: lon}, nil
-			},
-		},
-	}
+	return nil, errors.New("no .mmdb found in archive")
 }

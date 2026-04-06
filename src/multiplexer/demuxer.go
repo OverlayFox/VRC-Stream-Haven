@@ -45,7 +45,7 @@ type MpegTsDemuxer struct {
 	wg     sync.WaitGroup
 }
 
-func NewMpegTsDemuxer(logger zerolog.Logger, settings Settings, upstreamCtx context.Context) *MpegTsDemuxer {
+func NewMpegTsDemuxer(upstreamCtx context.Context, logger zerolog.Logger, settings Settings) *MpegTsDemuxer {
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	demux := &MpegTsDemuxer{
 		logger:   logger.With().Str("submodule", "multiplexer").Logger(),
@@ -61,7 +61,7 @@ func NewMpegTsDemuxer(logger zerolog.Logger, settings Settings, upstreamCtx cont
 	return demux
 }
 
-// Implements io.Reader.
+// Read Implements [io.Reader].
 func (d *MpegTsDemuxer) Read(b []byte) (int, error) {
 	n, err := d.buffer.read(b)
 	if err != nil && !errors.Is(err, io.EOF) && d.ctx.Err() != nil {
@@ -238,7 +238,7 @@ func (d *MpegTsDemuxer) getTimestamps(pes *astits.PESData) (time.Duration, time.
 	return pts, dts, nil
 }
 
-func (d *MpegTsDemuxer) Close() error {
+func (d *MpegTsDemuxer) Close() {
 	d.cancel()
 	if d.buffer != nil {
 		d.buffer.Close()
@@ -246,7 +246,6 @@ func (d *MpegTsDemuxer) Close() error {
 	d.wg.Wait()
 	d.astDemux = nil
 	d.buffer = nil
-	return nil
 }
 
 // --- Helper functions ---

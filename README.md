@@ -1,43 +1,135 @@
 # VRC-Stream-Haven
 
-VRChat Stream Haven is a self-hosted CDN designed for publishing RTSP signals to the web. </br>
-It allows users to join together into a Haven, improving stream stability for any viewer. </br>
+> A self-hosted CDN for VRChat streaming with intelligent geographic distribution
 
-It is currently still in very early development, pre-Alpha almost, so expect bugs and missing features. </br>
+VRC-Stream-Haven is a distributed content delivery network designed for publishing RTSP signals to the web. <br>
+It enables multiple servers to work together as a "Haven," automatically routing viewers to the geographically closest server for optimal stream stability and reduced latency.
 
-## Requirements
+⚠️ **Early Development Notice**: This project is currently in pre-alpha stage. Expect bugs and missing features.
 
-VRC-Stream-Haven uses the IP2Location LITE database for <a href="https://lite.ip2location.com">IP geolocation</a>. <br>
+## Features
 
-We use this location system to calculate the distance between the Flagship/Escorts and the client that wants to watch the stream. <br>
-The location of each Escort gets saved in RAM and in logs but the location of each viewer is not stored long term.
+- **Distributed CDN Architecture**: Multiple servers work together to serve streams efficiently
+- **Intelligent Geographic Routing**: Automatically routes viewers to the nearest available server
+- **SRT to RTSP Conversion**: Receives SRT feeds and remuxes to RTSP for web delivery
+- **Lightweight & Efficient**: Minimal resource footprint using native Go libraries without external dependencies
+- **Self-Hosted**: Full control over your streaming infrastructure
 
-This database is not provided by default in the repository due to licensing. <br>
-VRC-Stream-Haven will work without this database but for optimisation it is recommended to use it, especially if you're planning on hosting a larger stream with many clients.
+## Architecture
 
-Simply create an account on <a href="https://lite.ip2location.com">IP geolocation</a>.<br>
-Then go to https://lite.ip2location.com/database-download and look for your `Download Token`.<br>
-Insert this download token into the `variables.txt` file that is next to your `.exe`.<br>
-Make sure to insert it after `IP2LocationDownloadToken=` <br>
-It should look something like this `IPLocationDownloadToken=XXXXXXXXXXXXX`
+VRC-Stream-Haven uses a hub-and-spoke model with two types of servers:
 
-That's it!
-Each time you now start VRC-Stream-Haven it will check if there is a newer version of the database and download it.
+### Flagship (Main Server)
 
-## How it works:
+- Receives the primary SRT feed from the broadcaster
+- Manages the Haven network of Escort servers
+- Routes viewers to the optimal Escort based on geographic proximity
+- Serves as fallback when no Escorts are available
 
-One server acts as the main server (Flagship). </br>
-The Flagship will receive the main SRT feed that will be sent to all viewers. </br>
+### Escort (Edge Server)
 
-Another server can act as a Node (Escort). </br>
-The Escort will call the Flagship via an API and request to join the Haven. </br>
-If the passphrase is correct, the Flagship will add the Escort to the Haven. </br>
-This allows the Escort to pull the SRT feed from the Flagship and then remux it to RTSP. </br>
+- Pulls the SRT feed from the Flagship
+- Remuxes to RTSP for local viewers
+- Registers with the Flagship via API using a shared passphrase
+- Reduces load on the Flagship and improves viewer experience
 
-When a viewer connects to the Flagship, the Flagship will locate the viewer's IP and send them to the Escort that is
-closest to the viewer. </br>
+**Flow Diagram:**
 
-## Roadmap:
+```
+Broadcaster (SRT) → Flagship → Escort 1 → Viewers (nearby)
+                            → Escort 2 → Viewers (nearby)
+                            → Escort n → Viewers (nearby)
+                            → Viewers (direct fallback)
+```
 
-- [x] PoC
-- [ ] Refactor code base to make it more readable.
+## Prerequisites
+
+- Go 1.26 or higher
+- Network infrastructure capable of SRT/RTSP streaming
+- (Optional but recommended) IP2Location LITE database for geolocation
+
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/VRC-Stream-Haven.git
+cd VRC-Stream-Haven
+
+# Build the project
+make build
+
+# Or build manually
+go build -o vrc-stream-haven
+```
+
+## Configuration
+
+### IP2Location Database Setup (Recommended)
+
+VRC-Stream-Haven uses the [IP2Location LITE database](https://lite.ip2location.com) for IP geolocation to calculate distances between servers and viewers.
+
+> **Privacy Note**: Escort locations are stored in RAM and logs, but viewer locations are only calculated temporarily and not persisted.
+
+**Setup Steps:**
+
+1. Create a free account at [IP2Location LITE](https://lite.ip2location.com)
+2. Navigate to the [Database Download](https://lite.ip2location.com/database-download) page
+3. Copy your `Download Token`
+4. Create a `variables.txt` file in the same directory as the executable
+5. Add your token to the file:
+   ```
+   IP2LocationDownloadToken=YOUR_TOKEN_HERE
+   ```
+
+The application will automatically check for and download database updates on startup.
+
+> **Note**: The database is not included in the repository due to licensing restrictions.
+
+## Usage
+
+### Running as Flagship
+
+```bash
+./vrc-stream-haven flagship [options]
+```
+
+### Running as Escort
+
+```bash
+./vrc-stream-haven escort --flagship-url=<url> --passphrase=<secret> [options]
+```
+
+_(Full command-line documentation coming soon)_
+
+## Roadmap
+
+- [x] Proof of Concept
+- [ ] Code refactoring for improved readability and maintainability
+- [ ] Better circular buffering
+- [ ] MPEG-TS Demuxing
+- [ ] RTSP Muxing
+- [ ] Allow only a certain amount of viewers per node
+- [ ] Syncing between SRT-Servers and RTSP clients
+- [ ] Pirate Mode - allows server to only broadcast the RTSP signal on LAN
+- [ ] SRT chaining - allows nodes to pull SRT streams from other nodes
+- [ ] Web interface for monitoring
+- [ ] When a escort disconnects the readers shouldn't be dropped but redirected to a different escort
+
+## Contributing
+
+Contributions are welcome! This project is in early development and could benefit from:
+
+- Bug reports and feature requests
+- Code contributions and refactoring
+- Documentation improvements
+- Testing and feedback
+
+Please feel free to open issues or submit pull requests.
+
+## License
+
+This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
+
+## Acknowledgments
+
+- [IP2Location](https://lite.ip2location.com) for providing the geolocation database

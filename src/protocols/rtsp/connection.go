@@ -92,7 +92,7 @@ func (sh *Connection) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 			}, nil, nil
 		}
 
-		escort, err := sh.haven.GetClosestEscort(clientIP)
+		escort, err := sh.haven.GetClosestEscort(types.Location{})
 		if err != nil {
 			if errors.Is(err, types.ErrEscortsNotAvailable) {
 				return &base.Response{

@@ -43,7 +43,7 @@ type subBuffer struct {
 	cancel context.CancelFunc
 }
 
-func newBufferStream(logger zerolog.Logger, bufType types.BufferType) types.BufferStream {
+func newBufferStream(logger zerolog.Logger, bufType types.BufferType) types.SubBuffer {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &subBuffer{
 		logger:    logger,
@@ -172,26 +172,40 @@ func (b *subBuffer) writeAudio(frame types.Frame) error {
 	return nil
 }
 
-func (b *subBuffer) Subscribe(upstreamCtx context.Context, opts ...types.SubscribeOption) ([]types.BufferOutput, error) {
-	var cfg types.SubscribeConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	if cfg.PTSOffsetToLive == nil {
-		return nil, errors.New("PTSOffsetToLive required")
-	}
-	offset := *cfg.PTSOffsetToLive
+func (b *subBuffer) Subscribe(upstreamCtx context.Context, opts *types.SubscribeBuilder) ([]types.BufferOutput, error) {
 	if !b.IsReady() {
 		return nil, types.ErrBufferNotReady
 	}
-	startPos, startPTS, err := b.getStartPos(offset, cfg.DesiredPTSStart)
-	if err != nil {
-		return nil, err
+
+	var ch chan types.Frame
+	var desiredPTS time.Duration
+
+	// Get position to read from based on subscribe options
+	if opts.PTSOffsetToLive != nil {
+		startPos, closestPTS, err := b.getStartPos(*opts.PTSOffsetToLive, nil)
+		if err != nil {
+			return nil, err
+		}
+		ch, err = b.circBuf.ReadFromPos(startPos, upstreamCtx)
+		if err != nil {
+			return nil, err
+		}
+		desiredPTS = closestPTS
 	}
-	ch, err := b.circBuf.ReadFromPos(startPos, upstreamCtx)
-	if err != nil {
-		return nil, err
+
+	if opts.DesiredPTSStart != nil {
+		startPos, closestPTS, err := b.getStartPos(0, opts.DesiredPTSStart)
+		if err != nil {
+			return nil, err
+		}
+		ch, err = b.circBuf.ReadFromPos(startPos, upstreamCtx)
+		if err != nil {
+			return nil, err
+		}
+		desiredPTS = closestPTS
 	}
+
+	var firstPTS time.Duration
 	outCh := make(chan types.Frame, b.cap)
 	b.wg.Go(func() {
 		defer CloseAndDrain(outCh)
@@ -199,13 +213,11 @@ func (b *subBuffer) Subscribe(upstreamCtx context.Context, opts ...types.Subscri
 		if !ok {
 			return
 		}
-		b.mtx.RLock()
-		targetPTS := b.curPTS - offset.Abs()
-		b.mtx.RUnlock()
+
 		preBuf := []types.Frame{first}
-		firstPTS := first.Header().Pts
+		firstPTS = first.Header().Pts
 		lastPTS := firstPTS
-		preDur := targetPTS - firstPTS
+		preDur := desiredPTS - firstPTS
 		for lastPTS-firstPTS < preDur {
 			select {
 			case <-b.ctx.Done():
@@ -255,7 +267,7 @@ func (b *subBuffer) Subscribe(upstreamCtx context.Context, opts ...types.Subscri
 		Channel:  outCh,
 		Type:     b.bufType,
 		Title:    "PGM",
-		StartPTS: startPTS,
+		StartPTS: firstPTS,
 	}}, nil
 }
 
@@ -280,7 +292,7 @@ func (b *subBuffer) Close() {
 	b.format = types.FrameFormatUnknown
 }
 
-func (b *subBuffer) getStartPos(offset time.Duration, desiredPTS *time.Duration) (int, time.Duration, error) {
+func (b *subBuffer) getStartPos(offset time.Duration, desiredPTS *time.Duration) (pos int, closestPTS time.Duration, err error) {
 	if !b.IsReady() {
 		return 0, 0, types.ErrBufferNotReady
 	}
@@ -300,23 +312,23 @@ func (b *subBuffer) getStartPos(offset time.Duration, desiredPTS *time.Duration)
 	target := b.curPTS - offset
 	keys := b.keyFrames.Keys()
 	newestIdx := len(keys) - 1
-	newestPTS := keys[newestIdx]
-	minDiff := (target - newestPTS).Abs()
+	closestPTS = keys[newestIdx]
+	minDiff := (target - closestPTS).Abs()
 	for i := newestIdx - 1; i >= 0; i-- {
 		k := keys[i]
 		diff := (target - k).Abs()
 		if diff <= minDiff {
 			minDiff = diff
-			newestPTS = k
+			closestPTS = k
 		} else {
 			break
 		}
 	}
-	pos, ok := b.keyFrames.Get(newestPTS)
+	pos, ok := b.keyFrames.Get(closestPTS)
 	if !ok {
-		return 0, 0, fmt.Errorf("no keyframe for pts %s", newestPTS)
+		return 0, 0, fmt.Errorf("no keyframe for pts %s", closestPTS)
 	}
-	return pos, newestPTS, nil
+	return pos, closestPTS, nil
 }
 
 func (b *subBuffer) getStartPosFromPTS(targetPTS time.Duration, newestPos int) (int, time.Duration, error) {

@@ -1,6 +1,8 @@
 package types
 
 import (
+	"net"
+
 	pgeo "github.com/paulmach/go.geo"
 )
 
@@ -15,4 +17,8 @@ func (l *Location) GetGeoPoint() *pgeo.Point {
 
 func (l *Location) GetDistanceBetween(p2 *pgeo.Point) float64 {
 	return l.GetGeoPoint().DistanceFrom(p2)
+}
+
+type Locator interface {
+	GetLocation(addr net.Addr) (Location, error)
 }

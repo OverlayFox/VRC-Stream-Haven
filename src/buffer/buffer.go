@@ -13,8 +13,8 @@ import (
 type muxBuffer struct {
 	logger zerolog.Logger
 
-	videoBuf types.BufferStream
-	audioBuf types.BufferStream
+	videoBuf types.SubBuffer
+	audioBuf types.SubBuffer
 
 	videoReclk *reclocker
 }
@@ -68,13 +68,13 @@ func (b *muxBuffer) Write(frame types.Frame) error {
 }
 
 func (b *muxBuffer) Subscribe(ctx context.Context, offset time.Duration) ([]types.BufferOutput, error) {
-	cfg := types.SubscribeOptionWithPTSOffsetToLive(offset)
+	cfg := types.NewSubscribeBuilder().WithPTSOffsetToLive(offset)
 	video, err := b.videoBuf.Subscribe(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("video subscribe failed: %w", err)
 	}
 
-	cfg = types.SubscribeOptionWithPTSOffsetToLiveAndWithPTSStart(video[0].StartPTS, offset)
+	cfg = cfg.WithPTSStart(video[0].StartPTS)
 	audio, err := b.audioBuf.Subscribe(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("audio subscribe failed: %w", err)

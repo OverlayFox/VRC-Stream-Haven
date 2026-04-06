@@ -1,9 +1,5 @@
 package types
 
-import (
-	"net"
-)
-
 type Haven interface {
 	GetStreamID() string
 	GetPassphrase() string
@@ -11,8 +7,7 @@ type Haven interface {
 
 	AddConnection(Connection) error
 
-	TooManyEscorts() bool
-	GetClosestEscort(net.Addr) (Connection, error)
+	GetClosestEscort(Location) (Connection, error)
 
 	Close()
 }

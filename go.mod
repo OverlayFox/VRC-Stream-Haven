@@ -7,6 +7,7 @@ require (
 	github.com/bluenviron/gortsplib/v5 v5.1.1
 	github.com/bluenviron/mediacommon/v2 v2.5.1
 	github.com/datarhei/gosrt v0.9.0
+	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/paulmach/go.geo v0.0.0-20180829195134-22b514266d33
 	github.com/rs/zerolog v1.34.0
 	github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
@@ -21,6 +22,7 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/paulmach/go.geojson v1.5.0 // indirect
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
