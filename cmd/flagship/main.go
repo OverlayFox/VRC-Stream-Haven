@@ -41,7 +41,7 @@ func main() {
 		Port:       8554,
 		Address:    "0.0.0.0",
 		Passphrase: "thisisaverysecurepassphrase",
-		IsFlagship: false,
+		IsFlagship: true,
 	}
 	rtspServer, err := rtsp.New(ctx, logger, rtspConf, haven, locator)
 	if err != nil {

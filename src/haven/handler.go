@@ -21,7 +21,6 @@ type Haven struct {
 
 	publisher types.Connection   // publisher provides the main stream
 	escorts   []types.Connection // escorts are nodes that relay the publisher's stream to viewers
-	viewers   []types.Connection // viewers are clients that simply view the stream via RTSP
 
 	publisherMtx sync.RWMutex
 	escortMtx    sync.RWMutex
@@ -56,7 +55,6 @@ func NewHaven(upstreamCtx context.Context, logger zerolog.Logger, locator types.
 
 		publisher: nil,
 		escorts:   make([]types.Connection, 0),
-		viewers:   make([]types.Connection, 0),
 
 		demuxer: demuxer,
 		buffer:  buffer.NewBuffer(logger),
@@ -144,13 +142,6 @@ func (h *Haven) Close() {
 	}
 	h.escorts = make([]types.Connection, 0)
 
-	h.viewersMtx.Lock()
-	defer h.viewersMtx.Unlock()
-	for _, viewer := range h.viewers {
-		viewer.Close()
-	}
-	h.viewers = make([]types.Connection, 0)
-
 	h.buffer.Close()
 	h.demuxer.Close()
 }
@@ -182,14 +173,6 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 				escort.Close()
 			}
 			h.escorts = make([]types.Connection, 0)
-
-			h.viewersMtx.Lock()
-			defer h.viewersMtx.Unlock()
-			for _, viewer := range h.viewers {
-				h.logger.Info().Msgf("Closing viewer '%s' as publisher has disconnected", viewer.GetAddr().String())
-				viewer.Close()
-			}
-			h.viewers = make([]types.Connection, 0)
 
 			h.publisherMtx.Lock()
 			defer h.publisherMtx.Unlock()
@@ -291,4 +274,16 @@ func (h *Haven) addEscort(conn types.Connection) error {
 	})
 
 	return nil
+}
+
+func (h *Haven) GetRTSPStream() ([]types.BufferOutput, error) {
+	h.logger.Debug().Msg("Received request for RTSP stream from haven")
+	h.publisherMtx.RLock()
+	if h.publisher == nil {
+		h.publisherMtx.RUnlock()
+		return nil, types.ErrPublisherNotFound
+	}
+	h.publisherMtx.RUnlock()
+
+	return h.buffer.Subscribe(h.ctx, -2*time.Second)
 }

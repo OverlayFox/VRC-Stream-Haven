@@ -14,7 +14,7 @@ type Server struct {
 	logger zerolog.Logger
 	config Config
 
-	handler *Connection
+	handler *connectionHandler
 
 	wg sync.WaitGroup
 }
@@ -24,7 +24,7 @@ func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, have
 		return nil, err
 	}
 
-	h := &Connection{
+	h := &connectionHandler{
 		logger:     logger,
 		isFlagship: config.IsFlagship,
 		haven:      haven,
@@ -59,4 +59,14 @@ func (s *Server) Start() {
 func (s *Server) Close() {
 	s.handler.server.Close()
 	s.wg.Wait()
+}
+
+func (s *Server) CloseStream() {
+	s.handler.mu.Lock()
+	defer s.handler.mu.Unlock()
+
+	if s.handler.stream != nil {
+		s.handler.stream.Close()
+		s.handler.stream = nil
+	}
 }

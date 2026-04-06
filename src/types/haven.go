@@ -6,6 +6,7 @@ type Haven interface {
 	GetPublisher() (Connection, error)
 
 	AddConnection(Connection) error
+	GetRTSPStream() ([]BufferOutput, error)
 
 	GetClosestEscort(Location) (Connection, error)
 
