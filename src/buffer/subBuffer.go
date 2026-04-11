@@ -346,7 +346,7 @@ func (b *subBuffer) getStartPosFromPTS(targetPTS time.Duration) (pos int, pts ti
 	newestFramePos := (b.circBuf.writePos - 1 + b.cap) % b.cap
 	peeked, err := b.circBuf.peek(newestFramePos)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("failed to peek newest frame: %w", err)
 	}
 	minDiff := (targetPTS - peeked.Header().Pts).Abs()
 	closestPos := newestFramePos
@@ -355,7 +355,10 @@ func (b *subBuffer) getStartPosFromPTS(targetPTS time.Duration) (pos int, pts ti
 		pos := (newestFramePos - i + b.cap) % b.cap // this handles wrap-around correctly and walks backwards through the buffer
 		peekedFrame, err := b.circBuf.peek(pos)
 		if err != nil {
-			return closestPos, closestPTS, err
+			if errors.Is(err, ErrNoPayload) {
+				break // buffer hasn't been fully filled yet, so the latest frame is the closest we can get
+			}
+			return 0, 0, fmt.Errorf("failed to peek frame at pos %d: %w", pos, err)
 		}
 		diff := (targetPTS - peekedFrame.Header().Pts).Abs()
 		if diff <= minDiff {
