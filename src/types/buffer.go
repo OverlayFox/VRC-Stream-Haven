@@ -15,7 +15,8 @@ type Buffer interface {
 type SubBuffer interface {
 	IsReady() bool
 	Write(frame Frame) error
-	Subscribe(ctx context.Context, opts *SubscribeBuilder) ([]BufferOutput, error)
+	SubscribePTS(ctx context.Context, desiredPTS time.Duration) ([]BufferOutput, error)
+	SubscribeOffset(ctx context.Context, offsetToLive time.Duration) ([]BufferOutput, error)
 	Cancel()
 	Close()
 }
@@ -39,6 +40,7 @@ var mediaTypeToString = map[BufferType]string{
 
 var stringToMediaType = make(map[string]BufferType)
 
+//nolint:gochecknoinits // init function to populate the reverse map for BufferType string representations.
 func init() {
 	// This loop runs once, creating the reverse map automatically.
 	// This ensures the two maps are always in sync.
@@ -65,7 +67,7 @@ type BufferOutput struct {
 	Title    string
 	Type     BufferType
 	Channel  chan Frame
-	StartPTS time.Duration
+	StartPTS time.Duration // StartPTS is the PTS of the first frame in the channel, used for synchronization.
 }
 
 type SubscribeBuilder struct {

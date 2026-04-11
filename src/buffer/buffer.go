@@ -68,14 +68,12 @@ func (b *muxBuffer) Write(frame types.Frame) error {
 }
 
 func (b *muxBuffer) Subscribe(ctx context.Context, offset time.Duration) ([]types.BufferOutput, error) {
-	cfg := types.NewSubscribeBuilder().WithPTSOffsetToLive(offset)
-	video, err := b.videoBuf.Subscribe(ctx, cfg)
+	video, err := b.videoBuf.SubscribeOffset(ctx, offset)
 	if err != nil {
 		return nil, fmt.Errorf("video subscribe failed: %w", err)
 	}
 
-	cfg = cfg.WithPTSStart(video[0].StartPTS)
-	audio, err := b.audioBuf.Subscribe(ctx, cfg)
+	audio, err := b.audioBuf.SubscribePTS(ctx, video[0].StartPTS)
 	if err != nil {
 		return nil, fmt.Errorf("audio subscribe failed: %w", err)
 	}

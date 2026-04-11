@@ -236,7 +236,6 @@ func (sh *connectionHandler) handleFrames(packetCh <-chan types.Frame, mediaInde
 		for {
 			select {
 			case frame, ok := <-packetCh:
-				sh.logger.Debug().Msgf("received frame from haven for media index %d", mediaIndex)
 				if !ok {
 					sh.logger.Debug().Msg("frame channel closed, stopping frame writer")
 					return
