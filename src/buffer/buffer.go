@@ -15,19 +15,14 @@ type muxBuffer struct {
 
 	videoBuf types.SubBuffer
 	audioBuf types.SubBuffer
-
-	videoReclk *reclocker
 }
 
 func NewBuffer(log zerolog.Logger) types.Buffer {
 	b := &muxBuffer{
-		logger:     log,
-		videoBuf:   newBufferStream(log.With().Str("process_name", "video_buffer").Logger(), types.BufferTypeVideo),
-		audioBuf:   newBufferStream(log.With().Str("process_name", "audio_buffer").Logger(), types.BufferTypeAudio),
-		videoReclk: newReclocker(),
+		logger:   log,
+		videoBuf: newBufferStream(log.With().Str("process_name", "video_buffer").Logger(), types.BufferTypeVideo),
+		audioBuf: newBufferStream(log.With().Str("process_name", "audio_buffer").Logger(), types.BufferTypeAudio),
 	}
-	b.videoReclk.AddStream(codec.CODECID_VIDEO_H264)
-	b.videoReclk.AddStream(codec.CODECID_AUDIO_AAC)
 	return b
 }
 
@@ -41,23 +36,11 @@ func (b *muxBuffer) Write(frame types.Frame) error {
 
 	switch frame.Header().Cid {
 	case codec.CODECID_VIDEO_H264:
-		vf := frame.Clone()
-		if err := b.videoReclk.Reclock(vf); err != nil {
-			b.logger.Warn().Str("codec", codec.CodecString(vf.Header().Cid)).Dur("pts", vf.Header().Pts).Dur("dts", vf.Header().Dts).Err(err).Msg("video reclock failed, dropping")
-			vf.Decommission()
-			return nil
-		}
-		if err := b.videoBuf.Write(vf); err != nil {
+		if err := b.videoBuf.Write(frame.Clone()); err != nil {
 			return err
 		}
 	case codec.CODECID_AUDIO_AAC:
-		af := frame.Clone()
-		if err := b.videoReclk.Reclock(af); err != nil {
-			b.logger.Warn().Str("codec", codec.CodecString(af.Header().Cid)).Dur("pts", af.Header().Pts).Dur("dts", af.Header().Dts).Err(err).Msg("audio reclock failed, dropping")
-			af.Decommission()
-			return nil
-		}
-		if err := b.audioBuf.Write(af); err != nil {
+		if err := b.audioBuf.Write(frame.Clone()); err != nil {
 			return err
 		}
 	default:
