@@ -19,5 +19,9 @@
     "uncoveredGutterStyle": "blockred"
   },
   "go.coverageOptions": "showCoveredCodeOnly",
-  "go.coverOnSave": false
+  "go.coverOnSave": false,
+  "cSpell.words": [
+    "nalu", // Network Abstraction Layer Units
+    "nalus"
+  ]
 }

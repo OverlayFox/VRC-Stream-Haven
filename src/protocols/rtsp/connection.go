@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/pion/rtp"
 	"github.com/rs/zerolog"
+	"github.com/yapingcat/gomedia/go-codec"
 )
 
 type connectionHandler struct {
@@ -102,7 +103,7 @@ func (sh *connectionHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCt
 		}
 
 		if sh.stream == nil {
-			if err := sh.startFrameWriter(); err != nil {
+			if err := sh.initializeStream(); err != nil {
 				sh.logger.Error().Err(err).Msg("failed to start frame writer")
 				return &base.Response{
 					StatusCode: base.StatusInternalServerError,
@@ -198,12 +199,7 @@ func (sh *connectionHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (
 	}, nil
 }
 
-func (sh *connectionHandler) startFrameWriter() error {
-	err := sh.initializeStream()
-	if err != nil {
-		return fmt.Errorf("failed to initialize stream: %w", err)
-	}
-
+func (sh *connectionHandler) initializeStream() error {
 	bufferStreams, err := sh.haven.GetRTSPStream()
 	if err != nil {
 		return fmt.Errorf("failed to get RTSP stream from haven: %w", err)
@@ -220,74 +216,128 @@ func (sh *connectionHandler) startFrameWriter() error {
 			sh.logger.Warn().Msgf("received stream with unsupported type '%s', skipping", stream.Type)
 		}
 	}
-
 	if audioCh == nil || videoCh == nil {
 		return errors.New("missing audio or video stream from haven")
 	}
 
-	sh.handleFrames(videoCh, 0, sh.encodeH264) // media index 0 is video // TODO: make this dynamic based on the stream's description
-	sh.handleFrames(audioCh, 1, sh.encodeAAC)  // media index 1 is audio // TODO: make this dynamic based on the stream's description
+	sps, pps, asc, err := sh.extractMetadata(&videoCh, &audioCh)
+	if err != nil {
+		return fmt.Errorf("failed to extract stream metadata: %w", err)
+	}
+
+	err = sh.primeEncode(sps, pps, asc)
+	if err != nil {
+		return fmt.Errorf("failed to start encoders: %w", err)
+	}
+
+	sh.handleFrames(videoCh, 0, sh.encodeH264)
+	sh.handleFrames(audioCh, 1, sh.encodeAAC)
 
 	return nil
 }
 
-func (sh *connectionHandler) handleFrames(packetCh <-chan types.Frame, mediaIndex int, encoderFunc func(frame types.Frame) ([]*rtp.Packet, error)) {
+// extractMetadata tries to extracts the SPS/PPS and ASC from each frame until it has all three.
+// It'll block until it has all of them.
+//
+// TODO: add a timeout and handler when the channels are full and we haven't extracted the metadata yet
+func (sh *connectionHandler) extractMetadata(videoCh, audioCh *chan types.Frame) (sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig, err error) {
+	// exchange channels so that we can peek at the frames to extract SPS/PPS/ASC
+	upstreamVideoCh := *videoCh
+	upstreamAudioCh := *audioCh
+	*videoCh = make(chan types.Frame, cap(upstreamVideoCh))
+	*audioCh = make(chan types.Frame, cap(upstreamAudioCh))
+
+	receiveDone := make(chan struct{}, 2)
+
 	sh.wg.Go(func() {
+		defer close(receiveDone)
+		defer close(*videoCh)
+		defer close(*audioCh)
+
 		for {
 			select {
-			case frame, ok := <-packetCh:
+			case frame, ok := <-upstreamVideoCh:
 				if !ok {
-					sh.logger.Debug().Msg("frame channel closed, stopping frame writer")
 					return
 				}
-
-				pkts, err := encoderFunc(frame)
-				if err != nil {
-					sh.logger.Error().Err(err).Msg("failed to encode frame")
+				if sps != nil && pps != nil {
+					*videoCh <- frame
 					continue
 				}
 
-				sh.mu.RLock()
-				media := sh.stream.Desc.Medias[mediaIndex]
-				sh.mu.RUnlock()
-				for _, pkt := range pkts {
-					if err := sh.stream.WritePacketRTP(media, pkt); err != nil {
-						sh.logger.Error().Err(err).Msg("failed to write RTP packet")
-						continue
+				if sps == nil || pps == nil {
+					extractedSps, extractedPps, err := ExtractSPSPPS(frame)
+					if err != nil {
+						sh.logger.Debug().Err(err).Msg("SPS/PPS not in this frame, continuing")
+					} else {
+						sps, pps = extractedSps, extractedPps
+						if sps != nil && pps != nil && asc != nil {
+							receiveDone <- struct{}{}
+						}
 					}
 				}
+				*videoCh <- frame
+
+			case frame, ok := <-upstreamAudioCh:
+				if !ok {
+					return
+				}
+				if asc != nil {
+					*audioCh <- frame
+					continue
+				}
+
+				if asc == nil {
+					extractedAsc, err := ExtractASC(frame)
+					if err != nil {
+						sh.logger.Debug().Err(err).Msg("ASC not in this frame, continuing")
+					} else {
+						asc = extractedAsc
+						if sps != nil && pps != nil && asc != nil {
+							receiveDone <- struct{}{}
+						}
+					}
+				}
+				*audioCh <- frame
 			}
 		}
 	})
+
+	<-receiveDone
+	sh.logger.Debug().Msg("successfully extracted stream metadata, proceeding with stream initialization")
+	return sps, pps, asc, nil
 }
 
-func (sh *connectionHandler) initializeStream() error {
+// primeEncode initializes the stream and encoders with the provided SPS/PPS and ASC.
+func (sh *connectionHandler) primeEncode(sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig) error {
 	if sh.stream != nil {
 		return errors.New("stream already initialized")
 	}
 
-	// TODO: make this dynamic based on the stream's description
 	sh.stream = &gortsplib.ServerStream{
 		Server: sh.server,
 		Desc: &description.Session{
 			Medias: []*description.Media{
 				{
 					Type: description.MediaTypeVideo,
-					Formats: []format.Format{&format.H264{
-						PayloadTyp:        96,
-						PacketizationMode: 1,
-					}},
+					Formats: []format.Format{
+						&format.H264{
+							PayloadTyp:        96,
+							PacketizationMode: 1,
+							SPS:               sps,
+							PPS:               pps,
+						},
+					},
 				},
 				{
 					Type: description.MediaTypeAudio,
 					Formats: []format.Format{&format.MPEG4Audio{
-						PayloadTyp: 96,
-						Config: &mpeg4audio.AudioSpecificConfig{
-							Type:         mpeg4audio.ObjectTypeAACLC,
-							SampleRate:   48000,
-							ChannelCount: 2,
-						},
-					}}, // AAC
+						PayloadTyp:       96,
+						Config:           asc,
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
+					}},
 				},
 			},
 		},
@@ -325,12 +375,68 @@ func (sh *connectionHandler) initializeStream() error {
 	return sh.aacEncoder.Init()
 }
 
+// handleFrames reads frames from the provided channel, encodes them using the provided encoder function, and writes the resulting RTP packets to the stream.
+func (sh *connectionHandler) handleFrames(packetCh <-chan types.Frame, mediaIndex int, encoderFunc func(frame types.Frame) ([]*rtp.Packet, error)) {
+	sh.wg.Go(func() {
+		for {
+			select {
+			case frame, ok := <-packetCh:
+				if !ok {
+					sh.logger.Debug().Msg("frame channel closed, stopping frame writer")
+					return
+				}
+
+				pkts, err := encoderFunc(frame)
+				if err != nil {
+					sh.logger.Error().Err(err).Msg("failed to encode frame")
+					continue
+				}
+
+				sh.mu.RLock()
+				media := sh.stream.Desc.Medias[mediaIndex]
+				sh.mu.RUnlock()
+				for _, pkt := range pkts {
+					if err := sh.stream.WritePacketRTP(media, pkt); err != nil {
+						sh.logger.Error().Err(err).Msg("failed to write RTP packet")
+						continue
+					}
+				}
+			}
+		}
+	})
+}
+
 func (sh *connectionHandler) encodeH264(frame types.Frame) ([]*rtp.Packet, error) {
 	defer frame.Decommission()
-	return sh.h264Encoder.Encode([][]byte{frame.Data()})
+
+	var nalus [][]byte
+	codec.SplitFrameWithStartCode(frame.Data(), func(nalu []byte) bool {
+		naluCopy := make([]byte, len(nalu))
+		copy(naluCopy, nalu)
+		nalus = append(nalus, naluCopy)
+		return true
+	})
+
+	if len(nalus) == 0 {
+		return nil, errors.New("no NAL units found in frame")
+	}
+
+	return sh.h264Encoder.Encode(nalus)
 }
 
 func (sh *connectionHandler) encodeAAC(frame types.Frame) ([]*rtp.Packet, error) {
 	defer frame.Decommission()
-	return sh.aacEncoder.Encode([][]byte{frame.Data()})
+	data := frame.Data()
+
+	adtsHeaderLen := 7
+	if len(data) > 1 && (data[1]&0x01) == 0 {
+		adtsHeaderLen = 9
+	}
+
+	if len(data) < adtsHeaderLen {
+		return nil, errors.New("AAC frame too short")
+	}
+
+	rawAAC := data[adtsHeaderLen:]
+	return sh.aacEncoder.Encode([][]byte{rawAAC})
 }
