@@ -10,16 +10,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	goSrt "github.com/datarhei/gosrt"
-	"github.com/datarhei/gosrt/packet"
 	"github.com/rs/zerolog"
 )
 
 type connection struct {
-	logger   zerolog.Logger
+	logger zerolog.Logger
+
 	conn     goSrt.Conn
 	connType types.ConnectionType
+
+	demuxer *multiplexer.MpegTsDemuxer
 
 	haven    types.Haven
 	location types.Location
@@ -30,9 +33,16 @@ type connection struct {
 }
 
 func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, connReq goSrt.ConnRequest) (types.Connection, error) {
+	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	c := &connection{
 		logger: logger,
+
+		demuxer: multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
+			InputBufferCap:  50,
+			OutputBufferCap: 200,
+			AudioDriftLimit: 20 * time.Millisecond,
+		}),
 
 		haven: haven,
 
@@ -88,7 +98,7 @@ func (c *connection) GetCtx() context.Context {
 	return c.ctx
 }
 
-func (c *connection) Write(pkt packet.Packet) {
+func (c *connection) Write(frame types.Frame) {
 	err := c.conn.WritePacket(pkt)
 	if err != nil {
 		if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "use of closed network connection") {
@@ -102,7 +112,7 @@ func (c *connection) Write(pkt packet.Packet) {
 	}
 }
 
-func (c *connection) Read() chan packet.Packet {
+func (c *connection) Read() chan types.Frame {
 	pktCh, errCh := c.read()
 	c.wg.Go(func() {
 		for {
@@ -133,8 +143,8 @@ func (c *connection) close() {
 	c.logger.Info().Msg("SRT connection closed")
 }
 
-func (c *connection) read() (chan packet.Packet, chan error) {
-	pktCh := make(chan packet.Packet, 6000)
+func (c *connection) read() (chan types.Frame, chan error) {
+	pktCh := make(chan types.Frame, 6000)
 	errCh := make(chan error, 1)
 
 	c.wg.Go(func() {

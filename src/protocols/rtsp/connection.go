@@ -1,14 +1,14 @@
 package rtsp
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"net"
 	"sync"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/bluenviron/gortsplib/v5"
-	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
@@ -19,229 +19,133 @@ import (
 	"github.com/yapingcat/gomedia/go-codec"
 )
 
-type connectionHandler struct {
+const samplesPerFrame = 1024 // AAC-LC
+
+type Connection struct {
 	logger zerolog.Logger
 
-	server *gortsplib.Server
-	stream *gortsplib.ServerStream
-
-	aacEncoder  *rtpmpeg4audio.Encoder
-	h264Encoder *rtph264.Encoder
-
-	haven    types.Haven
-	locator  types.Locator
+	conn     net.Conn
 	location types.Location
 
-	isFlagship bool
-	rtpEncoder *rtph264.Encoder
+	stream        *gortsplib.ServerStream
+	server        *gortsplib.Server
+	h264Encoder   *rtph264.Encoder
+	aacEncoder    *rtpmpeg4audio.Encoder
+	aacSampleRate int
+	onPlay        chan struct{}
 
-	mu sync.RWMutex
-	wg sync.WaitGroup
+	videoCh chan types.Frame
+	audioCh chan types.Frame
+
+	wg     sync.WaitGroup
+	mtx    sync.RWMutex
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-// OnConnOpen is called when a connection is opened.
-func (sh *connectionHandler) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	location, err := sh.locator.GetLocation(ctx.Conn.NetConn().RemoteAddr())
-	if err != nil {
-		sh.logger.Warn().Err(err).Msg("failed to get location")
-		sh.location = types.Location{}
-	} else {
-		sh.location = location
+func NewConnection(logger zerolog.Logger, upstreamCtx context.Context, conn net.Conn, location types.Location, server *gortsplib.Server) types.RTSPConnection {
+	logger = logger.With().Str("ip", conn.RemoteAddr().String()).Str("location", location.String()).Logger()
+	ctx, cancel := context.WithCancel(upstreamCtx)
+	return &Connection{
+		logger: logger,
+
+		conn:     conn,
+		location: location,
+
+		server: server,
+		onPlay: make(chan struct{}, 1),
+
+		ctx:    ctx,
+		cancel: cancel,
 	}
-	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp connection opened")
 }
 
-// OnConnClose is called when a connection is closed.
-func (sh *connectionHandler) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
-	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msgf("rtsp connection closed: %v", ctx.Error)
+func (c *Connection) GetStream() *gortsplib.ServerStream {
+	return c.stream
 }
 
-// OnSessionOpen is called when a session is opened.
-func (sh *connectionHandler) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
-	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp session opened")
-}
-
-// OnSessionClose is called when a session is closed.
-func (sh *connectionHandler) OnSessionClose(_ *gortsplib.ServerHandlerOnSessionCloseCtx) {
-	sh.logger.Debug().Msg("rtsp session closed")
-}
-
-// OnDescribe is called when a describe request is received.
-// This function handles redirections.
-func (sh *connectionHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp describe request")
-
-	sh.mu.RLock()
-	defer sh.mu.RUnlock()
-
-	// Flagship mode:
-	if sh.isFlagship {
-		paths := strings.Split(ctx.Path, "/")
-		if len(paths) < 3 {
-			return &base.Response{
-				StatusCode: base.StatusConnectionCredentialsNotAccepted,
-			}, nil, nil
-		}
-		streamID := strings.TrimSpace(paths[1])
-		passphrase := strings.TrimSpace(paths[2])
-		clientIP := ctx.Conn.NetConn().RemoteAddr()
-
-		sh.logger.Debug().Msgf("received onDescribe request from ip '%s' for stream '%s', passphrase '%s'", clientIP.String(), streamID, passphrase)
-
-		if sh.haven.GetStreamID() != streamID {
-			sh.logger.Warn().Msgf("stream ID mismatch for client '%s'", clientIP.String())
-			return &base.Response{
-				StatusCode: base.StatusSessionNotFound,
-			}, nil, nil
-		}
-
-		if sh.haven.GetPassphrase() != passphrase {
-			sh.logger.Warn().Msgf("passphrase mismatch for client '%s'", clientIP.String())
-			return &base.Response{
-				StatusCode: base.StatusConnectionCredentialsNotAccepted,
-			}, nil, nil
-		}
-
-		if sh.stream == nil {
-			if err := sh.initializeStream(); err != nil {
-				sh.logger.Error().Err(err).Msg("failed to start frame writer")
-				return &base.Response{
-					StatusCode: base.StatusInternalServerError,
-				}, nil, nil
-			}
-		}
-
-		return &base.Response{
-			StatusCode: base.StatusOK,
-		}, sh.stream, nil
-
-		// escort, err := sh.haven.GetClosestEscort(sh.location)
-		// if err != nil {
-		// 	if errors.Is(err, types.ErrEscortsNotAvailable) {
-		// 		return &base.Response{
-		// 			StatusCode: base.StatusOK,
-		// 		}, sh.stream, nil
-		// 	}
-		// 	sh.logger.Error().Err(err).Msgf("failed to get escort for client '%s'", clientIP.String())
-		// 	return &base.Response{
-		// 		StatusCode: base.StatusInternalServerError,
-		// 	}, nil, nil
-		// }
-
-		// sh.logger.Info().Msgf("redirecting client '%s' to escort '%s'", clientIP.String(), escort.GetAddr().String())
-		// return &base.Response{
-		// 	StatusCode: base.StatusMovedPermanently,
-		// 	Header: base.Header{
-		// 		"Location": base.HeaderValue{"rtsp://" + escort.GetAddr().String() + ctx.Path},
-		// 	},
-		// }, nil, nil
+// StartPlay signals that the connection should start sending frames to the client.
+func (c *Connection) StartPlay() error {
+	if c.stream == nil {
+		return errors.New("stream not initialized yet")
 	}
 
-	// Escort mode:
-	if sh.stream == nil {
-		return &base.Response{
-			StatusCode: base.StatusNotFound,
-		}, nil, nil
+	select {
+	case <-c.ctx.Done():
+		return errors.New("connection context cancelled")
+	case c.onPlay <- struct{}{}:
+	default:
 	}
 
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
+	return nil
 }
 
-// OnAnnounce is called when an announce request is received.
-// We don't allow publishers, so we just return not implemented.
-func (sh *connectionHandler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	sh.logger.Warn().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("client tried to publish data to the stream, which is not supported")
-
-	return &base.Response{
-		StatusCode: base.StatusNotImplemented,
-	}, nil
+func (c *Connection) GetAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }
 
-// OnSetup is called when a setup request is received.
-func (sh *connectionHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	sh.logger.Debug().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp setup request")
-
-	if sh.stream == nil {
-		return &base.Response{
-			StatusCode: base.StatusNotFound,
-		}, nil, nil
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
+func (c *Connection) GetType() types.ConnectionType {
+	return types.ConnectionTypeReader
 }
 
-// OnPlay is called when a play request is received.
-func (sh *connectionHandler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
-	sh.logger.Info().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("rtsp play request")
-
-	if sh.stream != nil {
-		return &base.Response{
-			StatusCode: base.StatusOK,
-		}, nil
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusNotFound,
-	}, nil
+func (c *Connection) GetCtx() context.Context {
+	return c.ctx
 }
 
-// OnRecord is only called when receiving a frame from a publisher.
-// We don't allow publishers, so we just return not implemented.
-func (sh *connectionHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	sh.logger.Warn().Str("client_ip", ctx.Conn.NetConn().RemoteAddr().String()).Msg("client tried to push data to the stream via onRecord, which is not supported")
-
-	return &base.Response{
-		StatusCode: base.StatusNotImplemented,
-	}, nil
+func (c *Connection) GetLocation() types.Location {
+	return c.location
 }
 
-func (sh *connectionHandler) initializeStream() error {
-	bufferStreams, err := sh.haven.GetRTSPStream()
-	if err != nil {
-		return fmt.Errorf("failed to get RTSP stream from haven: %w", err)
-	}
+func (c *Connection) GetLogger() zerolog.Logger {
+	return c.logger
+}
 
-	audioCh, videoCh := make(chan types.Frame, 100), make(chan types.Frame, 100)
-	for _, stream := range bufferStreams {
+func (c *Connection) Write(streams []types.BufferOutput) error {
+	var audioCh, videoCh chan types.Frame
+	for _, stream := range streams {
 		switch stream.Type {
-		case types.BufferTypeAudio:
-			audioCh = stream.Channel
 		case types.BufferTypeVideo:
 			videoCh = stream.Channel
-		default:
-			sh.logger.Warn().Msgf("received stream with unsupported type '%s', skipping", stream.Type)
+		case types.BufferTypeAudio:
+			audioCh = stream.Channel
 		}
 	}
 	if audioCh == nil || videoCh == nil {
 		return errors.New("missing audio or video stream from haven")
 	}
 
-	sps, pps, asc, err := sh.extractMetadata(&videoCh, &audioCh)
+	sps, pps, asc, err := c.extractMetadata(&videoCh, &audioCh)
 	if err != nil {
-		return fmt.Errorf("failed to extract stream metadata: %w", err)
+		return fmt.Errorf("failed to extract streams metadata: %w", err)
 	}
 
-	err = sh.primeEncode(sps, pps, asc)
+	err = c.primeEncoders(sps, pps, asc)
 	if err != nil {
-		return fmt.Errorf("failed to start encoders: %w", err)
+		return fmt.Errorf("failed to prime encoders: %w", err)
 	}
 
-	sh.handleFrames(videoCh, 0, sh.encodeH264)
-	sh.handleFrames(audioCh, 1, sh.encodeAAC)
+	c.handleFrames(videoCh, 0, c.encodeH264)
+	c.handleFrames(audioCh, 1, c.encodeAAC)
 
 	return nil
 }
 
-// extractMetadata tries to extracts the SPS/PPS and ASC from each frame until it has all three.
-// It'll block until it has all of them.
+// Deprecated: Read is not implemented for RTSP connections as they will only read from the server.
 //
-// TODO: add a timeout and handler when the channels are full and we haven't extracted the metadata yet
-func (sh *connectionHandler) extractMetadata(videoCh, audioCh *chan types.Frame) (sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig, err error) {
-	// exchange channels so that we can peek at the frames to extract SPS/PPS/ASC
+// This is here to satisfy the Connection interface, but it will always return nil.
+func (c *Connection) Read() chan types.Frame {
+	return nil
+}
+
+func (c *Connection) Close() {
+	c.cancel()
+	c.conn.Close()
+}
+
+// extractMetadata listens to the provided video and audio channels until it successfully extracts the SPS/PPS for video and ASC for audio.
+//
+// TODO: move this into the buffer for better optimisation
+func (c *Connection) extractMetadata(videoCh, audioCh *chan types.Frame) (sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig, err error) {
 	upstreamVideoCh := *videoCh
 	upstreamAudioCh := *audioCh
 	*videoCh = make(chan types.Frame, cap(upstreamVideoCh))
@@ -249,7 +153,7 @@ func (sh *connectionHandler) extractMetadata(videoCh, audioCh *chan types.Frame)
 
 	receiveDone := make(chan struct{}, 2)
 
-	sh.wg.Go(func() {
+	c.wg.Go(func() {
 		defer close(receiveDone)
 		defer close(*videoCh)
 		defer close(*audioCh)
@@ -268,7 +172,7 @@ func (sh *connectionHandler) extractMetadata(videoCh, audioCh *chan types.Frame)
 				if sps == nil || pps == nil {
 					extractedSps, extractedPps, err := ExtractSPSPPS(frame)
 					if err != nil {
-						sh.logger.Debug().Err(err).Msg("SPS/PPS not in this frame, continuing")
+						c.logger.Debug().Err(err).Msg("SPS/PPS not in this frame, continuing")
 					} else {
 						sps, pps = extractedSps, extractedPps
 						if sps != nil && pps != nil && asc != nil {
@@ -290,7 +194,7 @@ func (sh *connectionHandler) extractMetadata(videoCh, audioCh *chan types.Frame)
 				if asc == nil {
 					extractedAsc, err := ExtractASC(frame)
 					if err != nil {
-						sh.logger.Debug().Err(err).Msg("ASC not in this frame, continuing")
+						c.logger.Debug().Err(err).Msg("ASC not in this frame, continuing")
 					} else {
 						asc = extractedAsc
 						if sps != nil && pps != nil && asc != nil {
@@ -303,19 +207,18 @@ func (sh *connectionHandler) extractMetadata(videoCh, audioCh *chan types.Frame)
 		}
 	})
 
-	<-receiveDone
-	sh.logger.Debug().Msg("successfully extracted stream metadata, proceeding with stream initialization")
-	return sps, pps, asc, nil
+	select {
+	case <-receiveDone:
+		return sps, pps, asc, nil
+	case <-c.ctx.Done():
+		return nil, nil, nil, errors.New("context cancelled while waiting for metadata")
+	}
 }
 
-// primeEncode initializes the stream and encoders with the provided SPS/PPS and ASC.
-func (sh *connectionHandler) primeEncode(sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig) error {
-	if sh.stream != nil {
-		return errors.New("stream already initialized")
-	}
-
-	sh.stream = &gortsplib.ServerStream{
-		Server: sh.server,
+// primeEncoders initializes the RTSP stream and encoders with the provided SPS, PPS, and ASC metadata and reels up the AAC and H264 encoder.
+func (c *Connection) primeEncoders(sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig) error {
+	c.stream = &gortsplib.ServerStream{
+		Server: c.server,
 		Desc: &description.Session{
 			Medias: []*description.Media{
 				{
@@ -342,12 +245,13 @@ func (sh *connectionHandler) primeEncode(sps, pps []byte, asc *mpeg4audio.AudioS
 			},
 		},
 	}
-	err := sh.stream.Initialize()
+	err := c.stream.Initialize()
 	if err != nil {
-		return fmt.Errorf("failed to initialize stream: %w", err)
+		return fmt.Errorf("failed to initialize RTSP stream: %w", err)
 	}
 
-	formatH264, ok := sh.stream.Desc.Medias[0].Formats[0].(*format.H264)
+	// Create H264 Encoder and initialize it
+	formatH264, ok := c.stream.Desc.Medias[0].Formats[0].(*format.H264)
 	if !ok {
 		return errors.New("failed to assert video format as H264")
 	}
@@ -357,13 +261,14 @@ func (sh *connectionHandler) primeEncode(sps, pps []byte, asc *mpeg4audio.AudioS
 	}
 	h264Encoder.PayloadMaxSize = 1450
 
-	sh.h264Encoder = h264Encoder
-	err = sh.h264Encoder.Init()
+	c.h264Encoder = h264Encoder
+	err = c.h264Encoder.Init()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize H264 encoder: %w", err)
 	}
 
-	formatAAC, ok := sh.stream.Desc.Medias[1].Formats[0].(*format.MPEG4Audio)
+	// Create AAC Encoder and initialize it
+	formatAAC, ok := c.stream.Desc.Medias[1].Formats[0].(*format.MPEG4Audio)
 	if !ok {
 		return errors.New("failed to assert audio format as MPEG4Audio")
 	}
@@ -371,46 +276,58 @@ func (sh *connectionHandler) primeEncode(sps, pps []byte, asc *mpeg4audio.AudioS
 	if err != nil {
 		return err
 	}
-	sh.aacEncoder = aacEncoder
-	return sh.aacEncoder.Init()
+	c.aacEncoder = aacEncoder
+	c.aacSampleRate = asc.SampleRate
+
+	return c.aacEncoder.Init()
 }
 
-// handleFrames reads frames from the provided channel, encodes them using the provided encoder function, and writes the resulting RTP packets to the stream.
-func (sh *connectionHandler) handleFrames(packetCh <-chan types.Frame, mediaIndex int, encoderFunc func(frame types.Frame) ([]*rtp.Packet, error)) {
-	sh.wg.Go(func() {
+func (c *Connection) handleFrames(packetCh <-chan types.Frame, mediaIndex int, encoderFunc func(frame types.Frame) ([]*rtp.Packet, error)) {
+	c.wg.Go(func() {
+		select {
+		case <-c.onPlay: // block until we receive the signal to start playing
+			c.logger.Debug().Msg("Received play signal, starting to server frames to client")
+		case <-c.ctx.Done():
+			return
+		}
+
 		for {
 			select {
+			case <-c.ctx.Done():
+				return
 			case frame, ok := <-packetCh:
 				if !ok {
-					sh.logger.Debug().Msg("frame channel closed, stopping frame writer")
 					return
 				}
 
 				pkts, err := encoderFunc(frame)
 				if err != nil {
-					sh.logger.Error().Err(err).Msg("failed to encode frame")
-					continue
+					c.logger.Error().Err(err).Msg("failed to encode frame")
+					frame.Decommission()
+					return // TODO: handle this better, maybe try to re-prime the encoder if we fail to encode a frame?
 				}
 
-				sh.mu.RLock()
-				media := sh.stream.Desc.Medias[mediaIndex]
-				sh.mu.RUnlock()
+				c.mtx.RLock()
+				media := c.stream.Desc.Medias[mediaIndex]
+				c.mtx.RUnlock()
+
 				for _, pkt := range pkts {
-					if err := sh.stream.WritePacketRTP(media, pkt); err != nil {
-						sh.logger.Error().Err(err).Msg("failed to write RTP packet")
+					if err = c.stream.WritePacketRTP(media, pkt); err != nil {
+						c.logger.Error().Err(err).Msg("failed to write RTP packet to stream")
 						continue
 					}
 				}
+				frame.Decommission()
 			}
 		}
 	})
 }
 
-func (sh *connectionHandler) encodeH264(frame types.Frame) ([]*rtp.Packet, error) {
-	defer frame.Decommission()
+func (c *Connection) encodeH264(frame types.Frame) ([]*rtp.Packet, error) {
+	frameData := frame.Data()
 
 	var nalus [][]byte
-	codec.SplitFrameWithStartCode(frame.Data(), func(nalu []byte) bool {
+	codec.SplitFrameWithStartCode(frameData, func(nalu []byte) bool {
 		naluCopy := make([]byte, len(nalu))
 		copy(naluCopy, nalu)
 		nalus = append(nalus, naluCopy)
@@ -418,25 +335,61 @@ func (sh *connectionHandler) encodeH264(frame types.Frame) ([]*rtp.Packet, error
 	})
 
 	if len(nalus) == 0 {
-		return nil, errors.New("no NAL units found in frame")
+		return nil, errors.New("no NALUs found in frame")
 	}
 
-	return sh.h264Encoder.Encode(nalus)
+	pkts, err := c.h264Encoder.Encode(nalus)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode H264 frame: %w", err)
+	}
+
+	rtpTimestamp := uint32(frame.Header().Pts.Milliseconds() * 90) // Convert PTS to RTP timestamp (assuming 90kHz clock)
+	for _, pkt := range pkts {
+		pkt.Timestamp = rtpTimestamp
+	}
+
+	return pkts, nil
 }
 
-func (sh *connectionHandler) encodeAAC(frame types.Frame) ([]*rtp.Packet, error) {
-	defer frame.Decommission()
-	data := frame.Data()
+func (c *Connection) encodeAAC(frame types.Frame) ([]*rtp.Packet, error) {
+	frameData := frame.Data()
+	basePts := frame.Header().Pts
 
-	adtsHeaderLen := 7
-	if len(data) > 1 && (data[1]&0x01) == 0 {
-		adtsHeaderLen = 9
+	// Split AAC frames and strip ADTS headers
+	var aacs [][]byte
+	codec.SplitAACFrame(frameData, func(aac []byte) {
+		var adts codec.ADTS_Frame_Header
+		adts.Decode(aac)
+
+		headerLen := 7
+		if adts.Fix_Header.Protection_absent == 0 {
+			headerLen = 9
+		}
+		aacs = append(aacs, aac[headerLen:])
+	})
+	if len(aacs) == 0 {
+		return nil, errors.New("no AAC frames found in audio frame")
 	}
 
-	if len(data) < adtsHeaderLen {
-		return nil, errors.New("AAC frame too short")
+	// Encode each AAC frame with proper timestamp offset
+	var allPkts []*rtp.Packet
+	for i, aac := range aacs {
+		pkts, err := c.aacEncoder.Encode([][]byte{aac})
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode AAC frame %d: %w", i, err)
+		}
+
+		// Each AAC frame is 1024 samples so we offset by i * 1024 samples
+		timestampOffset := uint32(i * samplesPerFrame)
+		baseRtpTimestamp := uint32(basePts.Milliseconds() * int64(c.aacSampleRate) / 1000)
+		rtpTimestamp := baseRtpTimestamp + timestampOffset
+
+		for _, pkt := range pkts {
+			pkt.Timestamp = rtpTimestamp
+		}
+
+		allPkts = append(allPkts, pkts...)
 	}
 
-	rawAAC := data[adtsHeaderLen:]
-	return sh.aacEncoder.Encode([][]byte{rawAAC})
+	return allPkts, nil
 }

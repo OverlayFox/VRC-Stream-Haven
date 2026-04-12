@@ -183,7 +183,7 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 	// Start reading from the publisher and writing to the buffer and demuxer
 	go func() {
 		packetCh := h.publisher.Read()
-		demuxerPktCh := make(chan packet.Packet, 100)
+		demuxerPktCh := make(chan packet.Frame, 100)
 		frameCh, errCh := h.demuxer.StartDemuxer(demuxerPktCh)
 
 		h.wg.Go(func() {

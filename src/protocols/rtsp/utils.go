@@ -2,6 +2,7 @@ package rtsp
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
@@ -70,4 +71,15 @@ func ExtractASC(frame types.Frame) (asc *mpeg4audio.AudioSpecificConfig, err err
 		SampleRate:   sampleRates[sampleRateIdx],
 		ChannelCount: int(channelConfig),
 	}, nil
+}
+
+func GetCredentials(path string) (streamID, passphrase string, err error) {
+	parts := strings.Split(path, "/")
+	if len(parts) < 3 {
+		return "", "", errors.New("invalid path format, expected /streamID/passphrase")
+	}
+
+	streamID = strings.TrimSpace(parts[1])
+	passphrase = strings.TrimSpace(parts[2])
+	return streamID, passphrase, nil
 }

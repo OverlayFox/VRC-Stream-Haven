@@ -90,6 +90,7 @@ func (b *subBuffer) writeVideo(frame types.Frame) error {
 			}
 		})
 	})
+
 	var idr []byte
 	var nalus [][]byte
 	codec.SplitFrameWithStartCode(frame.Data(), func(nalu []byte) bool {
@@ -177,43 +178,52 @@ func (b *subBuffer) SubscribePTS(upstreamCtx context.Context, desiredPTS time.Du
 		return nil, types.ErrBufferNotReady
 	}
 
-	b.mtx.RLock()
-	offset := b.curPTS - desiredPTS
-	b.mtx.RUnlock()
-
-	return b.SubscribeOffset(upstreamCtx, offset)
+	startPos, possiblePTS, err := b.getStartPosFromPTS(desiredPTS)
+	if err != nil {
+		return nil, err
+	}
+	return b.subscribe(upstreamCtx, startPos, possiblePTS)
 }
 
-// Subscribe allows a subscriber to read frames from the buffer starting from a position determined by the provided offset to live.
 func (b *subBuffer) SubscribeOffset(upstreamCtx context.Context, offsetToLive time.Duration) ([]types.BufferOutput, error) {
 	if !b.IsReady() {
 		return nil, types.ErrBufferNotReady
 	}
 
-	startPos, possiblePTS, err := b.getStartPos(offsetToLive.Abs())
+	startPos, possiblePTS, err := b.getClosestKeyFramePos(offsetToLive.Abs())
 	if err != nil {
 		return nil, err
 	}
+	return b.subscribe(upstreamCtx, startPos, possiblePTS)
+}
 
+// Subscribe allows a subscriber to read frames from the buffer starting from a position determined by the provided offset to live.
+func (b *subBuffer) subscribe(upstreamCtx context.Context, startPos int, startPTS time.Duration) ([]types.BufferOutput, error) {
 	ch, err := b.circBuf.ReadFromPos(startPos, upstreamCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	var firstPTS time.Duration
+	first, ok := <-ch
+	if !ok {
+		return nil, errors.New("buffer closed while subscribing")
+	}
+	firstFramePTS := first.Header().Pts
+
 	outCh := make(chan types.Frame, b.cap)
 	b.wg.Go(func() {
 		defer CloseAndDrain(outCh)
-		first, ok := <-ch
-		if !ok {
-			return
-		}
 
 		preBuf := []types.Frame{first}
-		firstPTS = first.Header().Pts
-		lastPTS := firstPTS
-		preDur := possiblePTS - firstPTS
-		for lastPTS-firstPTS < preDur {
+		lastPTS := firstFramePTS
+
+		b.mtx.RLock()
+		preDur := b.curPTS - firstFramePTS
+		b.mtx.RUnlock()
+
+		b.logger.Debug().Msgf("building prebuffer for new subscriber, prebuffer duration: '%02fsec'", preDur.Seconds())
+
+		for (lastPTS - firstFramePTS).Abs() < preDur {
 			select {
 			case <-b.ctx.Done():
 				return
@@ -262,7 +272,7 @@ func (b *subBuffer) SubscribeOffset(upstreamCtx context.Context, offsetToLive ti
 		Channel:  outCh,
 		Type:     b.bufType,
 		Title:    "PGM",
-		StartPTS: firstPTS,
+		StartPTS: firstFramePTS,
 	}}, nil
 }
 
@@ -287,36 +297,16 @@ func (b *subBuffer) Close() {
 	b.format = types.FrameFormatUnknown
 }
 
-// getStartPos determines the starting position in the buffer based on the provided offset to live
-//
-// It returns the buffer position, the actual PTS at that position, and any error encountered.
-func (b *subBuffer) getStartPos(offset time.Duration) (pos int, pts time.Duration, err error) {
-	if !b.IsReady() {
-		return 0, 0, types.ErrBufferNotReady
-	}
-
-	b.mtx.RLock()
-	requestedPTS := b.curPTS - offset
-	if requestedPTS > b.curPTS {
-		return 0, 0, fmt.Errorf("requested PTS '%s' is in the future relative to buffer current newest PTS '%s' in buffer", requestedPTS, b.curPTS)
-	}
-	b.mtx.RUnlock()
-
-	if b.bufType == types.BufferTypeAudio {
-		return b.getStartPosFromPTS(requestedPTS)
-	} else {
-		return b.getClosestKeyFramePos(requestedPTS)
-	}
-}
-
 // getClosestKeyFramePos finds the closest keyframe position to the target PTS, searching backwards from the newest keyframe.
-func (b *subBuffer) getClosestKeyFramePos(targetPTS time.Duration) (pos int, pts time.Duration, err error) {
+func (b *subBuffer) getClosestKeyFramePos(offset time.Duration) (pos int, pts time.Duration, err error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
 	if b.keyFrames.Len() == 0 {
 		return 0, 0, errors.New("no keyframes in buffer")
 	}
+
+	targetPTS := b.curPTS - offset
 	keys := b.keyFrames.Keys()
 	newestIdx := len(keys) - 1
 	pts = keys[newestIdx]
@@ -342,6 +332,10 @@ func (b *subBuffer) getClosestKeyFramePos(targetPTS time.Duration) (pos int, pts
 func (b *subBuffer) getStartPosFromPTS(targetPTS time.Duration) (pos int, pts time.Duration, err error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
+
+	if targetPTS > b.curPTS {
+		return 0, 0, fmt.Errorf("requested PTS '%s' is in the future relative to buffer current newest PTS '%s' in buffer", targetPTS, b.curPTS)
+	}
 
 	newestFramePos := (b.circBuf.writePos - 1 + b.cap) % b.cap
 	peeked, err := b.circBuf.peek(newestFramePos)

@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"net"
 
-	"github.com/datarhei/gosrt/packet"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/rs/zerolog"
 )
 
 type ConnectionType string
@@ -59,9 +60,16 @@ type Connection interface {
 	GetType() ConnectionType
 	GetCtx() context.Context
 	GetLocation() Location
+	GetLogger() zerolog.Logger
 
-	Write(packet.Packet)
-	Read() chan packet.Packet
+	Write(streams []BufferOutput) error
+	Read() chan Frame
 
 	Close()
+}
+
+type RTSPConnection interface {
+	Connection
+	GetStream() *gortsplib.ServerStream
+	StartPlay() error
 }

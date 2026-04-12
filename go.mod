@@ -9,6 +9,7 @@ require (
 	github.com/datarhei/gosrt v0.9.0
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/paulmach/go.geo v0.0.0-20180829195134-22b514266d33
+	github.com/pion/rtp v1.8.25
 	github.com/rs/zerolog v1.34.0
 	github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
 )
@@ -27,7 +28,6 @@ require (
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.16 // indirect
-	github.com/pion/rtp v1.8.25 // indirect
 	github.com/pion/sdp/v3 v3.0.16 // indirect
 	github.com/pion/srtp/v3 v3.0.8 // indirect
 	github.com/pion/transport/v3 v3.1.0 // indirect

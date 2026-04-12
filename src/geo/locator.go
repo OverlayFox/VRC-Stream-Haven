@@ -50,7 +50,7 @@ type Locator struct {
 
 // NewLocator creates a new Locator. It attempts to load a local DB immediately.
 // If the DB is missing or old, and a token is provided, it triggers a background update.
-func NewLocator(upstreamCtx context.Context, logger zerolog.Logger, config Config) (*Locator, error) {
+func NewLocator(upstreamCtx context.Context, logger zerolog.Logger, config Config) (types.Locator, error) {
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	l := &Locator{
 		logger: logger,
@@ -89,9 +89,17 @@ func (l *Locator) GetLocation(addr net.Addr) (types.Location, error) {
 		return types.Location{}, errors.New("ip not found in database")
 	}
 
+	state := "Unknown"
+	if len(record.Subdivisions) > 0 {
+		state = record.Subdivisions[0].Names["en"]
+	}
+
 	return types.Location{
-		Latitude:  record.Location.Latitude,
-		Longitude: record.Location.Longitude,
+		Latitude:    record.Location.Latitude,
+		Longitude:   record.Location.Longitude,
+		CountryName: record.Country.Names["en"],
+		StateName:   state,
+		City:        record.City.Names["en"],
 	}, nil
 }
 

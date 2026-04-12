@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"net"
 
 	pgeo "github.com/paulmach/go.geo"
@@ -9,6 +10,10 @@ import (
 type Location struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+
+	CountryName string `json:"country"`
+	StateName   string `json:"state"`
+	City        string `json:"city"`
 }
 
 func (l *Location) GetGeoPoint() *pgeo.Point {
@@ -17,6 +22,10 @@ func (l *Location) GetGeoPoint() *pgeo.Point {
 
 func (l *Location) GetDistanceBetween(p2 *pgeo.Point) float64 {
 	return l.GetGeoPoint().DistanceFrom(p2)
+}
+
+func (l *Location) String() string {
+	return fmt.Sprintf("%s, %s, %s (%.4f, %.4f)", l.City, l.StateName, l.CountryName, l.Latitude, l.Longitude)
 }
 
 type Locator interface {
