@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/geo"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/haven"
@@ -38,10 +39,12 @@ func main() {
 	}
 
 	rtspConf := rtsp.Config{
-		Port:       8554,
-		Address:    "0.0.0.0",
-		Passphrase: "thisisaverysecurepassphrase",
-		IsFlagship: true,
+		Port:           8554,
+		Address:        "0.0.0.0",
+		Passphrase:     "thisisaverysecurepassphrase",
+		IsFlagship:     true,
+		WriteTimeout:   10 * time.Second,
+		WriteQueueSize: 8192,
 	}
 	rtspServer, err := rtsp.New(ctx, logger, rtspConf, haven, locator)
 	if err != nil {

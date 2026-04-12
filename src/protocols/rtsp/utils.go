@@ -13,31 +13,22 @@ var ErrSPSPPSNotFound = errors.New("SPS/PPS not found in video frame")
 
 // ExtractSPSPPS takes a video frame and extracts the SPS and PPS NAL units from it.
 func ExtractSPSPPS(frame types.Frame) (sps, pps []byte, err error) {
-	codec.SplitFrameWithStartCode(frame.Data(), func(nalu []byte) bool {
-		nalu = codec.ConvertAnnexBToAVCC(nalu)
-		if len(nalu) < 5 {
+	codec.SplitFrame(frame.Data(), func(nalu []byte) bool {
+		if len(nalu) == 0 {
 			return true
 		}
-
-		naluData := nalu[4:]
-		if len(naluData) == 0 {
-			return true
-		}
-		naluType := naluData[0] & 0x1F
+		naluType := nalu[0] & 0x1F
 
 		switch naluType {
 		case 7: // SPS
-			sps = make([]byte, len(naluData))
-			copy(sps, naluData)
+			sps = make([]byte, len(nalu))
+			copy(sps, nalu)
 		case 8: // PPS
-			pps = make([]byte, len(naluData))
-			copy(pps, naluData)
+			pps = make([]byte, len(nalu))
+			copy(pps, nalu)
 		}
 
-		if len(sps) > 0 && len(pps) > 0 {
-			return false
-		}
-		return true
+		return len(sps) <= 0 || len(pps) <= 0
 	})
 
 	if len(sps) == 0 || len(pps) == 0 {

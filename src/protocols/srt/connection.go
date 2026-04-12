@@ -34,7 +34,7 @@ type connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, connReq goSrt.ConnRequest) (types.Connection, error) {
+func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, connReq goSrt.ConnRequest) (types.ConnectionSRT, error) {
 	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	c := &connection{

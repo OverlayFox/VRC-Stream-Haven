@@ -63,12 +63,18 @@ type Connection interface {
 	GetLocation() Location
 	GetLogger() zerolog.Logger
 
-	Write(streams []BufferOutput) error
+	Close()
+}
+
+type ConnectionSRT interface {
+	Connection
 	WritePacket(pkt packet.Packet) error
 	Read() chan packet.Packet
+}
 
+type ConnectionRTSP interface {
+	Connection
+	Write(stream []BufferOutput) error
 	GetStream() *gortsplib.ServerStream
 	StartPlay() error
-
-	Close()
 }

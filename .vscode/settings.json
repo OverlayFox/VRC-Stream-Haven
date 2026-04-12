@@ -22,6 +22,9 @@
   "go.coverOnSave": false,
   "cSpell.words": [
     "nalu", // Network Abstraction Layer Units
-    "nalus"
+    "nalus",
+    "RTSP",
+    "SRT",
+    "gortsplib"
   ]
 }

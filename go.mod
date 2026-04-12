@@ -3,13 +3,13 @@ module github.com/OverlayFox/VRC-Stream-Haven
 go 1.26.0
 
 require (
-	github.com/asticode/go-astits v1.13.0
-	github.com/bluenviron/gortsplib/v5 v5.1.1
-	github.com/bluenviron/mediacommon/v2 v2.5.1
+	github.com/asticode/go-astits v1.15.0
+	github.com/bluenviron/gortsplib/v5 v5.5.1
+	github.com/bluenviron/mediacommon/v2 v2.8.3
 	github.com/datarhei/gosrt v0.9.0
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/paulmach/go.geo v0.0.0-20180829195134-22b514266d33
-	github.com/pion/rtp v1.8.25
+	github.com/pion/rtp v1.10.1
 	github.com/rs/zerolog v1.34.0
 	github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
 )
@@ -28,11 +28,11 @@ require (
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.16 // indirect
-	github.com/pion/sdp/v3 v3.0.16 // indirect
-	github.com/pion/srtp/v3 v3.0.8 // indirect
-	github.com/pion/transport/v3 v3.1.0 // indirect
+	github.com/pion/sdp/v3 v3.0.18 // indirect
+	github.com/pion/srtp/v3 v3.0.10 // indirect
+	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/net v0.46.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/crypto v0.49.0 // indirect
+	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 )

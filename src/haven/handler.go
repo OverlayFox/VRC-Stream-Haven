@@ -20,9 +20,9 @@ type Haven struct {
 	streamID   string
 	passphrase string
 
-	publisher types.Connection              // publisher provides the main stream
-	escorts   []types.Connection            // escorts are nodes that relay the publisher's stream to viewers
-	viewers   map[net.Addr]types.Connection // viewers are connections that only consume the stream
+	publisher types.ConnectionSRT               // publisher provides the main stream
+	escorts   []types.ConnectionSRT             // escorts are nodes that relay the publisher's stream to viewers
+	viewers   map[net.Addr]types.ConnectionRTSP // viewers are connections that only consume the stream
 
 	publisherMtx sync.RWMutex
 	escortMtx    sync.RWMutex
@@ -52,8 +52,8 @@ func NewHaven(upstreamCtx context.Context, logger zerolog.Logger, locator types.
 		passphrase: passphrase,
 
 		publisher: nil,
-		escorts:   make([]types.Connection, 0),
-		viewers:   make(map[net.Addr]types.Connection),
+		escorts:   make([]types.ConnectionSRT, 0),
+		viewers:   make(map[net.Addr]types.ConnectionRTSP),
 
 		buffer:  buffer.NewBuffer(logger),
 		demuxer: demuxer,
@@ -73,7 +73,7 @@ func (h *Haven) GetPassphrase() string {
 	return h.passphrase
 }
 
-func (h *Haven) GetPublisher() (types.Connection, error) {
+func (h *Haven) GetPublisher() (types.ConnectionSRT, error) {
 	h.publisherMtx.RLock()
 	defer h.publisherMtx.RUnlock()
 
@@ -86,22 +86,34 @@ func (h *Haven) GetPublisher() (types.Connection, error) {
 func (h *Haven) AddConnection(conn types.Connection) error {
 	switch conn.GetType() {
 	case types.ConnectionTypeEscort:
+		conn, ok := conn.(types.ConnectionSRT)
+		if !ok {
+			return errors.New("invalid connection type for escort")
+		}
 		return h.addEscort(conn)
 	case types.ConnectionTypePublisher:
+		conn, ok := conn.(types.ConnectionSRT)
+		if !ok {
+			return errors.New("invalid connection type for publisher")
+		}
 		return h.addPublisher(conn)
 	case types.ConnectionTypeReader:
+		conn, ok := conn.(types.ConnectionRTSP)
+		if !ok {
+			return errors.New("invalid connection type for viewer")
+		}
 		return h.addViewer(conn)
 	default:
 		return errors.New("unknown connection type")
 	}
 }
 
-func (h *Haven) GetClosestEscort(location types.Location) types.Connection {
+func (h *Haven) GetClosestEscort(location types.Location) types.ConnectionSRT {
 	if len(h.escorts) == 0 {
 		return nil
 	}
 
-	var closestEscort types.Connection
+	var closestEscort types.ConnectionSRT
 	clientGeoPoint := location.GetGeoPoint()
 	flagshipLocation := h.publisher.GetLocation() // TODO: use the havens location instead of the publishers location
 	closestDistance := flagshipLocation.GetDistanceBetween(clientGeoPoint)
@@ -137,12 +149,12 @@ func (h *Haven) Close() {
 	for _, escort := range h.escorts {
 		escort.Close()
 	}
-	h.escorts = make([]types.Connection, 0)
+	h.escorts = make([]types.ConnectionSRT, 0)
 
 	h.buffer.Close()
 }
 
-func (h *Haven) addPublisher(conn types.Connection) error {
+func (h *Haven) addPublisher(conn types.ConnectionSRT) error {
 	h.publisherMtx.Lock()
 	defer h.publisherMtx.Unlock()
 
@@ -168,7 +180,7 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 				h.logger.Info().Msgf("Closing escort '%s' as publisher has disconnected", escort.GetAddr().String())
 				escort.Close()
 			}
-			h.escorts = make([]types.Connection, 0)
+			h.escorts = make([]types.ConnectionSRT, 0)
 
 			h.publisherMtx.Lock()
 			defer h.publisherMtx.Unlock()
@@ -240,7 +252,7 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 	return nil
 }
 
-func (h *Haven) addEscort(conn types.Connection) error {
+func (h *Haven) addEscort(conn types.ConnectionSRT) error {
 	h.publisherMtx.RLock()
 	if h.publisher == nil {
 		h.publisherMtx.RUnlock()
@@ -274,7 +286,7 @@ func (h *Haven) addEscort(conn types.Connection) error {
 	return nil
 }
 
-func (h *Haven) addViewer(conn types.Connection) error {
+func (h *Haven) addViewer(conn types.ConnectionRTSP) error {
 	h.publisherMtx.RLock()
 	if h.publisher == nil {
 		h.publisherMtx.RUnlock()
@@ -324,7 +336,7 @@ func (h *Haven) addViewer(conn types.Connection) error {
 	return nil
 }
 
-func (h *Haven) GetViewer(conn net.Addr) (types.Connection, error) {
+func (h *Haven) GetViewer(conn net.Addr) (types.ConnectionRTSP, error) {
 	h.viewersMtx.RLock()
 	defer h.viewersMtx.RUnlock()
 

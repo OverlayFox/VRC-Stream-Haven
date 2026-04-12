@@ -34,10 +34,7 @@ type Connection struct {
 	h264Encoder   *rtph264.Encoder
 	aacEncoder    *rtpmpeg4audio.Encoder
 	aacSampleRate int
-	onPlay        chan struct{}
-
-	videoCh chan types.Frame
-	audioCh chan types.Frame
+	// onPlay        chan struct{}
 
 	wg     sync.WaitGroup
 	mtx    sync.RWMutex
@@ -45,7 +42,7 @@ type Connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(logger zerolog.Logger, upstreamCtx context.Context, conn net.Conn, location types.Location, server *gortsplib.Server, session *gortsplib.ServerSession) types.Connection {
+func NewConnection(logger zerolog.Logger, upstreamCtx context.Context, conn net.Conn, location types.Location, server *gortsplib.Server, session *gortsplib.ServerSession) types.ConnectionRTSP {
 	logger = logger.With().Str("ip", conn.RemoteAddr().String()).Str("location", location.String()).Logger()
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	return &Connection{
@@ -56,7 +53,7 @@ func NewConnection(logger zerolog.Logger, upstreamCtx context.Context, conn net.
 
 		server:  server,
 		session: session,
-		onPlay:  make(chan struct{}, 1),
+		// onPlay:  make(chan struct{}, 1),
 
 		ctx:    ctx,
 		cancel: cancel,
@@ -73,12 +70,12 @@ func (c *Connection) StartPlay() error {
 		return errors.New("stream not initialized yet")
 	}
 
-	select {
-	case <-c.ctx.Done():
-		return errors.New("connection context cancelled")
-	case c.onPlay <- struct{}{}:
-	default:
-	}
+	// select {
+	// case <-c.ctx.Done():
+	// 	return errors.New("connection context cancelled")
+	// case c.onPlay <- struct{}{}:
+	// default:
+	// }
 
 	return nil
 }
@@ -247,7 +244,7 @@ func (c *Connection) primeEncoders(sps, pps []byte, asc *mpeg4audio.AudioSpecifi
 				{
 					Type: description.MediaTypeAudio,
 					Formats: []format.Format{&format.MPEG4Audio{
-						PayloadTyp:       96,
+						PayloadTyp:       97,
 						Config:           asc,
 						SizeLength:       13,
 						IndexLength:      3,
@@ -296,12 +293,12 @@ func (c *Connection) primeEncoders(sps, pps []byte, asc *mpeg4audio.AudioSpecifi
 
 func (c *Connection) handleFrames(packetCh <-chan types.Frame, mediaIndex int, encoderFunc func(frame types.Frame) ([]*rtp.Packet, error)) {
 	c.wg.Go(func() {
-		select {
-		case <-c.onPlay: // block until we receive the signal to start playing
-			c.logger.Debug().Msg("Received play signal, starting to server frames to client")
-		case <-c.ctx.Done():
-			return
-		}
+		// select {
+		// case <-c.onPlay: // block until we receive the signal to start playing
+		// 	c.logger.Debug().Msg("Received play signal, starting to server frames to client")
+		// case <-c.ctx.Done():
+		// 	return
+		// }
 
 		for {
 			select {
@@ -337,9 +334,8 @@ func (c *Connection) handleFrames(packetCh <-chan types.Frame, mediaIndex int, e
 
 func (c *Connection) encodeH264(frame types.Frame) ([]*rtp.Packet, error) {
 	frameData := frame.Data()
-
 	var nalus [][]byte
-	codec.SplitFrameWithStartCode(frameData, func(nalu []byte) bool {
+	codec.SplitFrame(frameData, func(nalu []byte) bool {
 		naluCopy := make([]byte, len(nalu))
 		copy(naluCopy, nalu)
 		nalus = append(nalus, naluCopy)
@@ -347,7 +343,7 @@ func (c *Connection) encodeH264(frame types.Frame) ([]*rtp.Packet, error) {
 	})
 
 	if len(nalus) == 0 {
-		return nil, errors.New("no NALUs found in frame")
+		return nil, nil
 	}
 
 	pkts, err := c.h264Encoder.Encode(nalus)
@@ -355,7 +351,7 @@ func (c *Connection) encodeH264(frame types.Frame) ([]*rtp.Packet, error) {
 		return nil, fmt.Errorf("failed to encode H264 frame: %w", err)
 	}
 
-	rtpTimestamp := uint32(frame.Header().Pts.Milliseconds() * 90) // Convert PTS to RTP timestamp (assuming 90kHz clock)
+	rtpTimestamp := uint32(uint64(frame.Header().Pts.Nanoseconds()) * 9 / 100000) // Convert PTS to RTP timestamp (assuming 90kHz clock)
 	for _, pkt := range pkts {
 		pkt.Timestamp = rtpTimestamp
 	}
@@ -377,31 +373,25 @@ func (c *Connection) encodeAAC(frame types.Frame) ([]*rtp.Packet, error) {
 		if adts.Fix_Header.Protection_absent == 0 {
 			headerLen = 9
 		}
-		aacs = append(aacs, aac[headerLen:])
+
+		payload := make([]byte, len(aac)-headerLen)
+		copy(payload, aac[headerLen:])
+		aacs = append(aacs, payload)
 	})
 	if len(aacs) == 0 {
 		return nil, errors.New("no AAC frames found in audio frame")
 	}
 
-	// Encode each AAC frame with proper timestamp offset
-	var allPkts []*rtp.Packet
-	for i, aac := range aacs {
-		pkts, err := c.aacEncoder.Encode([][]byte{aac})
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode AAC frame %d: %w", i, err)
-		}
-
-		// Each AAC frame is 1024 samples so we offset by i * 1024 samples
-		timestampOffset := uint32(i * samplesPerFrame)
-		baseRtpTimestamp := uint32(basePts.Milliseconds() * int64(c.aacSampleRate) / 1000)
-		rtpTimestamp := baseRtpTimestamp + timestampOffset
-
-		for _, pkt := range pkts {
-			pkt.Timestamp = rtpTimestamp
-		}
-
-		allPkts = append(allPkts, pkts...)
+	pkts, err := c.aacEncoder.Encode(aacs)
+	if err != nil {
+		return nil, err
 	}
 
-	return allPkts, nil
+	// Set timestamps for the generated packets
+	baseRtpTimestamp := uint32(uint64(basePts.Nanoseconds()) * uint64(c.aacSampleRate) / 1000000000)
+	for _, pkt := range pkts {
+		pkt.Timestamp = baseRtpTimestamp
+	}
+
+	return pkts, nil
 }
