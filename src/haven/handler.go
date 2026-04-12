@@ -286,6 +286,20 @@ func (h *Haven) addViewer(conn types.Connection) error {
 	h.viewers[conn.GetAddr()] = conn
 	h.viewersMtx.Unlock()
 
+	h.logger.Debug().Msgf("Added viewer '%s' to haven", conn.GetAddr().String())
+
+	bufferOutput, err := h.buffer.Subscribe(conn.GetCtx(), -2*time.Second)
+	if err != nil {
+		h.logger.Error().Err(err).Msgf("Failed to subscribe viewer '%s' to buffer", conn.GetAddr().String())
+		return err
+	}
+
+	err = conn.Write(bufferOutput)
+	if err != nil {
+		h.logger.Error().Err(err).Msgf("Failed to write buffer output to viewer '%s'", conn.GetAddr().String())
+		return err
+	}
+
 	// Monitor the viewer's context and remove it from the map when it is done
 	h.wg.Go(func() {
 		select {
