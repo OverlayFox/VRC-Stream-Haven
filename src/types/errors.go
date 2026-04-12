@@ -12,4 +12,6 @@ var (
 
 	ErrEscortNotFound      = errors.New("escort not found")
 	ErrEscortsNotAvailable = errors.New("no escorts available")
+
+	ErrViewerNotFound = errors.New("viewer not found")
 )

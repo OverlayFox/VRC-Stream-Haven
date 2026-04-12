@@ -3,6 +3,7 @@ package haven
 import (
 	"context"
 	"errors"
+	"net"
 	"sync"
 	"time"
 
@@ -19,15 +20,16 @@ type Haven struct {
 	streamID   string
 	passphrase string
 
-	publisher types.Connection   // publisher provides the main stream
-	escorts   []types.Connection // escorts are nodes that relay the publisher's stream to viewers
+	publisher types.Connection              // publisher provides the main stream
+	escorts   []types.Connection            // escorts are nodes that relay the publisher's stream to viewers
+	viewers   map[net.Addr]types.Connection // viewers are connections that only consume the stream
 
 	publisherMtx sync.RWMutex
 	escortMtx    sync.RWMutex
 	viewersMtx   sync.RWMutex
 
-	demuxer *multiplexer.MpegTsDemuxer
 	buffer  types.Buffer
+	demuxer *multiplexer.MpegTsDemuxer
 
 	locator types.Locator
 
@@ -36,17 +38,13 @@ type Haven struct {
 	cancel context.CancelFunc
 }
 
-var _ types.Haven = (*Haven)(nil)
-
 func NewHaven(upstreamCtx context.Context, logger zerolog.Logger, locator types.Locator, passphrase, streamID string) (types.Haven, error) {
-	demuxerConfig := multiplexer.Settings{
-		InputBufferCap:  100,
+	ctx, cancel := context.WithCancel(upstreamCtx)
+	demuxer := multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
+		InputBufferCap:  50,
 		OutputBufferCap: 200,
 		AudioDriftLimit: 20 * time.Millisecond,
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	demuxer := multiplexer.NewMpegTsDemuxer(ctx, logger, demuxerConfig)
-
+	})
 	return &Haven{
 		logger: logger,
 
@@ -55,9 +53,10 @@ func NewHaven(upstreamCtx context.Context, logger zerolog.Logger, locator types.
 
 		publisher: nil,
 		escorts:   make([]types.Connection, 0),
+		viewers:   make(map[net.Addr]types.Connection),
 
-		demuxer: demuxer,
 		buffer:  buffer.NewBuffer(logger),
+		demuxer: demuxer,
 
 		locator: locator,
 
@@ -90,19 +89,21 @@ func (h *Haven) AddConnection(conn types.Connection) error {
 		return h.addEscort(conn)
 	case types.ConnectionTypePublisher:
 		return h.addPublisher(conn)
+	case types.ConnectionTypeReader:
+		return h.addViewer(conn)
 	default:
 		return errors.New("unknown connection type")
 	}
 }
 
-func (h *Haven) GetClosestEscort(location types.Location) (types.Connection, error) {
+func (h *Haven) GetClosestEscort(location types.Location) types.Connection {
 	if len(h.escorts) == 0 {
-		return nil, types.ErrEscortsNotAvailable
+		return nil
 	}
 
 	var closestEscort types.Connection
 	clientGeoPoint := location.GetGeoPoint()
-	flagshipLocation := h.publisher.GetLocation()
+	flagshipLocation := h.publisher.GetLocation() // TODO: use the havens location instead of the publishers location
 	closestDistance := flagshipLocation.GetDistanceBetween(clientGeoPoint)
 
 	for _, escort := range h.escorts {
@@ -115,11 +116,7 @@ func (h *Haven) GetClosestEscort(location types.Location) (types.Connection, err
 		}
 	}
 
-	if closestEscort == nil {
-		return nil, types.ErrEscortsNotAvailable
-	}
-
-	return closestEscort, nil
+	return closestEscort
 }
 
 func (h *Haven) Close() {
@@ -143,7 +140,6 @@ func (h *Haven) Close() {
 	h.escorts = make([]types.Connection, 0)
 
 	h.buffer.Close()
-	h.demuxer.Close()
 }
 
 func (h *Haven) addPublisher(conn types.Connection) error {
@@ -183,7 +179,7 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 	// Start reading from the publisher and writing to the buffer and demuxer
 	go func() {
 		packetCh := h.publisher.Read()
-		demuxerPktCh := make(chan packet.Frame, 100)
+		demuxerPktCh := make(chan packet.Packet, 100)
 		frameCh, errCh := h.demuxer.StartDemuxer(demuxerPktCh)
 
 		h.wg.Go(func() {
@@ -222,7 +218,6 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 					h.logger.Debug().Msg("Packet channel closed")
 					return
 				}
-
 				demuxerClone := p.Clone()
 				select {
 				case demuxerPktCh <- demuxerClone:
@@ -232,7 +227,10 @@ func (h *Haven) addPublisher(conn types.Connection) error {
 
 				for _, escort := range h.escorts {
 					escortClone := p.Clone()
-					escort.Write(escortClone)
+					err := escort.WritePacket(escortClone)
+					if err != nil {
+						h.logger.Error().Err(err).Msgf("Failed to write packet to escort '%s'", escort.GetAddr().String())
+					}
 				}
 				p.Decommission()
 			}
@@ -276,14 +274,49 @@ func (h *Haven) addEscort(conn types.Connection) error {
 	return nil
 }
 
-func (h *Haven) GetRTSPStream() ([]types.BufferOutput, error) {
-	h.logger.Debug().Msg("Received request for RTSP stream from haven")
+func (h *Haven) addViewer(conn types.Connection) error {
 	h.publisherMtx.RLock()
 	if h.publisher == nil {
 		h.publisherMtx.RUnlock()
-		return nil, types.ErrPublisherNotFound
+		return types.ErrPublisherNotFound
 	}
 	h.publisherMtx.RUnlock()
 
-	return h.buffer.Subscribe(h.ctx, -2*time.Second)
+	h.viewersMtx.Lock()
+	h.viewers[conn.GetAddr()] = conn
+	h.viewersMtx.Unlock()
+
+	// Monitor the viewer's context and remove it from the map when it is done
+	h.wg.Go(func() {
+		select {
+		case <-h.ctx.Done():
+			h.logger.Debug().Msgf("Haven context done, closing viewer '%s'", conn.GetAddr().String())
+			conn.Close()
+
+		case <-conn.GetCtx().Done():
+			h.logger.Debug().Msgf("Viewer context done, removing viewer '%s' from haven", conn.GetAddr().String())
+
+			h.viewersMtx.Lock()
+			defer h.viewersMtx.Unlock()
+			for addr, v := range h.viewers {
+				if v == conn {
+					delete(h.viewers, addr)
+					break
+				}
+			}
+		}
+	})
+
+	return nil
+}
+
+func (h *Haven) GetViewer(conn net.Addr) (types.Connection, error) {
+	h.viewersMtx.RLock()
+	defer h.viewersMtx.RUnlock()
+
+	viewer, ok := h.viewers[conn]
+	if !ok {
+		return nil, types.ErrViewerNotFound
+	}
+	return viewer, nil
 }

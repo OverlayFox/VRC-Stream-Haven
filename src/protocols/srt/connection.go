@@ -12,7 +12,9 @@ import (
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
+	"github.com/bluenviron/gortsplib/v5"
 	goSrt "github.com/datarhei/gosrt"
+	"github.com/datarhei/gosrt/packet"
 	"github.com/rs/zerolog"
 )
 
@@ -98,21 +100,51 @@ func (c *connection) GetCtx() context.Context {
 	return c.ctx
 }
 
-func (c *connection) Write(frame types.Frame) {
+func (c *connection) GetLogger() zerolog.Logger {
+	return c.logger
+}
+
+// Deprecated: GetStream is not implemented for SRT connections as they will only read from the server.
+//
+// This is here to satisfy the Connection interface, but it will always return nil.
+// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
+func (c *connection) GetStream() *gortsplib.ServerStream {
+	return nil
+}
+
+// Deprecated: StartPlay is not implemented for SRT connections as they will only read from the server.
+//
+// This is here to satisfy the Connection interface, but it will always do nothing.
+// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
+func (c *connection) StartPlay() error {
+	return nil
+}
+
+func (c *connection) WritePacket(pkt packet.Packet) error {
 	err := c.conn.WritePacket(pkt)
 	if err != nil {
 		if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "use of closed network connection") {
 			c.logger.Info().Err(err).Msg("SRT connection closed by peer or internally")
 			c.Close()
-			return
+			return err
 		}
 		c.logger.Error().Err(err).Msg("SRT connection write error")
 		c.Close()
-		return
+		return err
 	}
+
+	return nil
 }
 
-func (c *connection) Read() chan types.Frame {
+// Deprecated: Write is not implemented for SRT connections as they need to write packets, not frames.
+//
+// This is here to satisfy the Connection interface, but it will always do nothing.
+// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
+func (c *connection) Write(streams []types.BufferOutput) error {
+	return nil
+}
+
+func (c *connection) Read() chan packet.Packet {
 	pktCh, errCh := c.read()
 	c.wg.Go(func() {
 		for {
@@ -143,8 +175,8 @@ func (c *connection) close() {
 	c.logger.Info().Msg("SRT connection closed")
 }
 
-func (c *connection) read() (chan types.Frame, chan error) {
-	pktCh := make(chan types.Frame, 6000)
+func (c *connection) read() (chan packet.Packet, chan error) {
+	pktCh := make(chan packet.Packet, 6000)
 	errCh := make(chan error, 1)
 
 	c.wg.Go(func() {

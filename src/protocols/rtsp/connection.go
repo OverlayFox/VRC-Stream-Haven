@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpmpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+	"github.com/datarhei/gosrt/packet"
 	"github.com/pion/rtp"
 	"github.com/rs/zerolog"
 	"github.com/yapingcat/gomedia/go-codec"
@@ -29,6 +30,7 @@ type Connection struct {
 
 	stream        *gortsplib.ServerStream
 	server        *gortsplib.Server
+	session       *gortsplib.ServerSession
 	h264Encoder   *rtph264.Encoder
 	aacEncoder    *rtpmpeg4audio.Encoder
 	aacSampleRate int
@@ -43,7 +45,7 @@ type Connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(logger zerolog.Logger, upstreamCtx context.Context, conn net.Conn, location types.Location, server *gortsplib.Server) types.RTSPConnection {
+func NewConnection(logger zerolog.Logger, upstreamCtx context.Context, conn net.Conn, location types.Location, server *gortsplib.Server, session *gortsplib.ServerSession) types.Connection {
 	logger = logger.With().Str("ip", conn.RemoteAddr().String()).Str("location", location.String()).Logger()
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	return &Connection{
@@ -52,8 +54,9 @@ func NewConnection(logger zerolog.Logger, upstreamCtx context.Context, conn net.
 		conn:     conn,
 		location: location,
 
-		server: server,
-		onPlay: make(chan struct{}, 1),
+		server:  server,
+		session: session,
+		onPlay:  make(chan struct{}, 1),
 
 		ctx:    ctx,
 		cancel: cancel,
@@ -130,10 +133,19 @@ func (c *Connection) Write(streams []types.BufferOutput) error {
 	return nil
 }
 
+// Deprecated: WritePacket is not implemented for RTSP connections as they need AAC and H264 frames, not SRT Packets.
+//
+// This is here to satisfy the Connection interface, but it will always return nil.
+// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
+func (c *Connection) WritePacket(pkt packet.Packet) error {
+	return nil
+}
+
 // Deprecated: Read is not implemented for RTSP connections as they will only read from the server.
 //
 // This is here to satisfy the Connection interface, but it will always return nil.
-func (c *Connection) Read() chan types.Frame {
+// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
+func (c *Connection) Read() chan packet.Packet {
 	return nil
 }
 

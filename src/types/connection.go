@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/bluenviron/gortsplib/v5"
+	"github.com/datarhei/gosrt/packet"
 	"github.com/rs/zerolog"
 )
 
@@ -63,13 +64,11 @@ type Connection interface {
 	GetLogger() zerolog.Logger
 
 	Write(streams []BufferOutput) error
-	Read() chan Frame
+	WritePacket(pkt packet.Packet) error
+	Read() chan packet.Packet
 
-	Close()
-}
-
-type RTSPConnection interface {
-	Connection
 	GetStream() *gortsplib.ServerStream
 	StartPlay() error
+
+	Close()
 }
