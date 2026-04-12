@@ -106,10 +106,10 @@ _(Full command-line documentation coming soon)_
 ## Roadmap
 
 - [x] Proof of Concept
-- [ ] Code refactoring for improved readability and maintainability
-- [ ] Better circular buffering
-- [ ] MPEG-TS Demuxing
-- [ ] RTSP Muxing
+- [x] Code refactoring for improved readability and maintainability
+- [x] Better circular buffering
+- [x] MPEG-TS Demuxing
+- [x] RTSP Muxing
 - [ ] Allow only a certain amount of viewers per node
 - [ ] Syncing between SRT-Servers and RTSP clients
 - [ ] Pirate Mode - allows server to only broadcast the RTSP signal on LAN
