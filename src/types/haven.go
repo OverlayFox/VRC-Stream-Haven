@@ -1,20 +1,16 @@
 package types
 
-import (
-	"net"
-)
+import "net"
 
 type Haven interface {
-	GetStreamId() string
-
-	GetFlagship() Flagship
-	AddFlagship(MediaSession) error
-
-	AddEscort(MediaSession) error
-
-	GetClosestEscort(net.Addr) (Escort, error)
-
+	GetStreamID() string
 	GetPassphrase() string
+	GetPublisher() (ConnectionSRT, error)
 
-	GetPacketBuffer() (PacketBuffer, error)
+	AddConnection(Connection) error
+
+	GetClosestEscort(Location) ConnectionSRT
+	GetViewer(net.Addr) (ConnectionRTSP, error)
+
+	Close()
 }

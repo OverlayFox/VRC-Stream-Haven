@@ -1,0 +1,28 @@
+{
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": ["--config=${workspaceFolder}/.golangci.yaml"],
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "golang.go"
+  },
+  "gopls": {
+    "formatting.gofumpt": true,
+    "formatting.local": "github.com/OverlayFox/VRC-Stream-Haven"
+  },
+  "go.coverageDecorator": {
+    "type": "gutter",
+    "coveredHighlightColor": "rgba(64,128,64,0.5)",
+    "uncoveredHighlightColor": "rgba(128,64,64,0.25)",
+    "coveredGutterStyle": "blockgreen",
+    "uncoveredGutterStyle": "blockred"
+  },
+  "go.coverageOptions": "showCoveredCodeOnly",
+  "go.coverOnSave": false,
+  "cSpell.words": [
+    "nalu", // Network Abstraction Layer Units
+    "nalus",
+    "RTSP",
+    "SRT",
+    "gortsplib"
+  ]
+}

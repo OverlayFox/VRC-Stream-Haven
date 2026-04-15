@@ -1,15 +1,17 @@
 package types
 
-import "fmt"
+import "errors"
 
 var (
-	ErrBufferNotReady = fmt.Errorf("buffer not ready")
+	ErrBufferNotReady = errors.New("buffer not ready")
 
-	ErrHavenNotFound = fmt.Errorf("haven not found")
+	ErrHavenNotFound = errors.New("haven not found")
 
-	ErrFlagshipAlreadyExists = fmt.Errorf("flagship already exists")
-	ErrFlagshipNotFound      = fmt.Errorf("flagship not found")
+	ErrPublisherAlreadyExists = errors.New("flagship already exists")
+	ErrPublisherNotFound      = errors.New("flagship not found")
 
-	ErrEscortNotFound      = fmt.Errorf("escort not found")
-	ErrEscortsNotAvailable = fmt.Errorf("no escorts available")
+	ErrEscortNotFound      = errors.New("escort not found")
+	ErrEscortsNotAvailable = errors.New("no escorts available")
+
+	ErrViewerNotFound = errors.New("viewer not found")
 )
