@@ -4,8 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/yapingcat/gomedia/go-codec"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 func CloseAndDrain(ch chan types.Frame) {

@@ -10,11 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	goSrt "github.com/datarhei/gosrt"
 	"github.com/datarhei/gosrt/packet"
 	"github.com/rs/zerolog"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 type connection struct {

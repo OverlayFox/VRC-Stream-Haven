@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/rs/zerolog"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 var (

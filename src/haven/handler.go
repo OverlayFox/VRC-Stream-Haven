@@ -7,11 +7,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/datarhei/gosrt/packet"
+	"github.com/rs/zerolog"
+
 	"github.com/OverlayFox/VRC-Stream-Haven/src/buffer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
-	"github.com/datarhei/gosrt/packet"
-	"github.com/rs/zerolog"
 )
 
 type Haven struct {

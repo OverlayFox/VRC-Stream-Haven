@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	goSrt "github.com/datarhei/gosrt"
 	"github.com/rs/zerolog"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 type Config struct {

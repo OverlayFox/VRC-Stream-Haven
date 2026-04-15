@@ -5,8 +5,9 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/yapingcat/gomedia/go-codec"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 const (

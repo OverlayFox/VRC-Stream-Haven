@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	goSrt "github.com/datarhei/gosrt"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 type streamRequest struct {

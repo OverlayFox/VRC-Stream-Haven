@@ -1,16 +1,14 @@
 {
   "go.lintTool": "golangci-lint",
-  "go.lintOnSave": "package",
-  "go.lintFlags": ["--config=${workspaceFolder}/.golangci.yaml", "--fix"],
+  "go.lintFlags": ["--config=${workspaceFolder}/.golangci.yaml"],
   "[go]": {
     "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit",
-      "source.fixAll": "explicit"
-    }
+    "editor.defaultFormatter": "golang.go"
   },
-  "go.formatTool": "goimports",
-  "go.goimportsLocalPrefix": "github.com/OverlayFox/VRC-Stream-Haven",
+  "gopls": {
+    "formatting.gofumpt": true,
+    "formatting.local": "github.com/OverlayFox/VRC-Stream-Haven"
+  },
   "go.coverageDecorator": {
     "type": "gutter",
     "coveredHighlightColor": "rgba(64,128,64,0.5)",

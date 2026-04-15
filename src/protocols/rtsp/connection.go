@@ -7,7 +7,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -17,6 +16,8 @@ import (
 	"github.com/pion/rtp"
 	"github.com/rs/zerolog"
 	"github.com/yapingcat/gomedia/go-codec"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 type Connection struct {

@@ -16,9 +16,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/rs/zerolog"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 const (

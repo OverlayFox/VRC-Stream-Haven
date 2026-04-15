@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/rs/zerolog"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 type Server struct {

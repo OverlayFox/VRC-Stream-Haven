@@ -6,10 +6,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/buffer"
-	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 	"github.com/rs/zerolog"
 	"github.com/yapingcat/gomedia/go-codec"
+
+	"github.com/OverlayFox/VRC-Stream-Haven/src/buffer"
+	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
 const (
