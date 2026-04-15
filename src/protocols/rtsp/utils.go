@@ -28,7 +28,7 @@ func ExtractSPSPPS(frame types.Frame) (sps, pps []byte, err error) {
 			copy(pps, nalu)
 		}
 
-		return len(sps) <= 0 || len(pps) <= 0
+		return len(sps) == 0 || len(pps) == 0
 	})
 
 	if len(sps) == 0 || len(pps) == 0 {

@@ -93,7 +93,7 @@ func (f *muxFrame) Data() []byte {
 }
 
 func (f *muxFrame) Len() uint64 {
-	return uint64(f.payload.Len())
+	return uint64(f.payload.Len()) //nolint:gosec // Buffer.Len() is always non-negative
 }
 
 func (f *muxFrame) IsKeyFrame() bool {

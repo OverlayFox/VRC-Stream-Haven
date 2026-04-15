@@ -51,6 +51,8 @@ func (f FrameFormat) String() string {
 }
 
 // FrameHeap implements heap.Interface for types.Frame, ordered by DTS.
+//
+//nolint:recvcheck // Certain functions need to be pointers to make this to work
 type FrameHeap []Frame
 
 // Len returns the number of elements in the heap.
@@ -84,7 +86,7 @@ func (h FrameHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
 // Push adds an element to the heap.
 func (h *FrameHeap) Push(x any) {
-	*h = append(*h, x.(Frame))
+	*h = append(*h, x.(Frame)) //nolint:errcheck // We ensure that only Frame types are pushed, so this should never panic
 }
 
 // Pop removes and returns the minimum element (root) from the heap.

@@ -27,7 +27,7 @@ func DetectH264Format(data []byte) (types.FrameFormat, error) {
 	}
 	if len(data) >= 4 {
 		nalLen := binary.BigEndian.Uint32(data[:4])
-		if nalLen > 0 && nalLen <= uint32(len(data)-4) && nalLen < 10*1024*1024 {
+		if nalLen > 0 && nalLen < 10*1024*1024 && int(nalLen)+4 <= len(data) {
 			return types.FrameFormatAVCC, nil
 		}
 	}

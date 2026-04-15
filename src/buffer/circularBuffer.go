@@ -119,7 +119,12 @@ func (cb *circularBuffer) ReadFromPos(startPos int, upstreamCtx context.Context)
 	ch := make(chan types.Frame, cb.cap)
 	liveCh := make(chan types.Frame, cb.cap)
 	cb.wg.Go(func() {
-		defer cb.removeSubscriber(ch)
+		defer func() {
+			err := cb.removeSubscriber(ch)
+			if err != nil {
+				cb.logger.Error().Err(err).Msg("failed to remove subscriber")
+			}
+		}()
 		var history []types.Frame
 		cb.mtx.RLock()
 		for i := range cb.cap {

@@ -198,7 +198,7 @@ func (b *subBuffer) SubscribeOffset(upstreamCtx context.Context, offsetToLive ti
 }
 
 // Subscribe allows a subscriber to read frames from the buffer starting from a position determined by the provided offset to live.
-func (b *subBuffer) subscribe(upstreamCtx context.Context, startPos int, startPTS time.Duration) ([]types.BufferOutput, error) {
+func (b *subBuffer) subscribe(upstreamCtx context.Context, startPos int, _ time.Duration) ([]types.BufferOutput, error) {
 	ch, err := b.circBuf.ReadFromPos(startPos, upstreamCtx)
 	if err != nil {
 		return nil, err

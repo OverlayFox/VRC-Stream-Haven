@@ -144,7 +144,10 @@ func (c *connection) Close() {
 }
 
 func (c *connection) close() {
-	c.conn.Close()
+	err := c.conn.Close()
+	if err != nil {
+		c.logger.Error().Err(err).Msg("Failed to close SRT connection")
+	}
 	c.wg.Wait()
 
 	c.logger.Info().Msg("SRT connection closed")

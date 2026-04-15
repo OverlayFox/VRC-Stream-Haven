@@ -25,7 +25,6 @@ type Server struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	mtx    sync.RWMutex
 	wg     sync.WaitGroup
 }
 
@@ -86,7 +85,7 @@ func (s *Server) validate(path string) (*base.Response, error) {
 	if s.haven.GetPassphrase() != passphrase {
 		return &base.Response{StatusCode: base.StatusConnectionCredentialsNotAccepted}, errors.New("invalid passphrase")
 	}
-	return nil, nil
+	return &base.Response{StatusCode: base.StatusOK}, nil
 }
 
 //

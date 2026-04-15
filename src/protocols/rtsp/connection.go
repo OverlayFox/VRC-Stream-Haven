@@ -14,13 +14,10 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpmpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
-	"github.com/datarhei/gosrt/packet"
 	"github.com/pion/rtp"
 	"github.com/rs/zerolog"
 	"github.com/yapingcat/gomedia/go-codec"
 )
-
-const samplesPerFrame = 1024 // AAC-LC
 
 type Connection struct {
 	logger zerolog.Logger
@@ -33,7 +30,7 @@ type Connection struct {
 	session       *gortsplib.ServerSession
 	h264Encoder   *rtph264.Encoder
 	aacEncoder    *rtpmpeg4audio.Encoder
-	aacSampleRate int
+	aacSampleRate uint
 	// onPlay        chan struct{}
 
 	wg     sync.WaitGroup
@@ -130,30 +127,22 @@ func (c *Connection) Write(streams []types.BufferOutput) error {
 	return nil
 }
 
-// Deprecated: WritePacket is not implemented for RTSP connections as they need AAC and H264 frames, not SRT Packets.
-//
-// This is here to satisfy the Connection interface, but it will always return nil.
-// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
-func (c *Connection) WritePacket(pkt packet.Packet) error {
-	return nil
-}
-
-// Deprecated: Read is not implemented for RTSP connections as they will only read from the server.
-//
-// This is here to satisfy the Connection interface, but it will always return nil.
-// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
-func (c *Connection) Read() chan packet.Packet {
-	return nil
-}
-
 func (c *Connection) Close() {
 	c.cancel()
-	c.conn.Close()
+	err := c.conn.Close()
+	if err != nil {
+		c.logger.Error().Err(err).Msg("failed to close RTSP connection")
+	}
+	c.wg.Wait()
+
+	c.logger.Info().Msg("RTSP connection closed")
 }
 
 // extractMetadata listens to the provided video and audio channels until it successfully extracts the SPS/PPS for video and ASC for audio.
 //
 // TODO: move this into the buffer for better optimisation
+//
+//nolint:gocognit // will be moved into the buffer and can be refactored then
 func (c *Connection) extractMetadata(videoCh, audioCh *chan types.Frame) (sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig, err error) {
 	upstreamVideoCh := *videoCh
 	upstreamAudioCh := *audioCh
@@ -286,7 +275,11 @@ func (c *Connection) primeEncoders(sps, pps []byte, asc *mpeg4audio.AudioSpecifi
 		return err
 	}
 	c.aacEncoder = aacEncoder
-	c.aacSampleRate = asc.SampleRate
+
+	if asc.SampleRate < 0 {
+		return fmt.Errorf("invalid sample rate in ASC: %d", asc.SampleRate)
+	}
+	c.aacSampleRate = uint(asc.SampleRate)
 
 	return c.aacEncoder.Init()
 }
@@ -351,7 +344,11 @@ func (c *Connection) encodeH264(frame types.Frame) ([]*rtp.Packet, error) {
 		return nil, fmt.Errorf("failed to encode H264 frame: %w", err)
 	}
 
-	rtpTimestamp := uint32(uint64(frame.Header().Pts.Nanoseconds()) * 9 / 100000) // Convert PTS to RTP timestamp (assuming 90kHz clock)
+	baseNanos := frame.Header().Pts.Nanoseconds()
+	if baseNanos < 0 {
+		return nil, fmt.Errorf("invalid PTS for H264 frame: %d", baseNanos)
+	}
+	rtpTimestamp := uint32(uint64(baseNanos) * 9 / 100000) //nolint:gosec // timestamp wrapping is intentional behavior per the RTP specification (RFC 3550).
 	for _, pkt := range pkts {
 		pkt.Timestamp = rtpTimestamp
 	}
@@ -388,7 +385,11 @@ func (c *Connection) encodeAAC(frame types.Frame) ([]*rtp.Packet, error) {
 	}
 
 	// Set timestamps for the generated packets
-	baseRtpTimestamp := uint32(uint64(basePts.Nanoseconds()) * uint64(c.aacSampleRate) / 1000000000)
+	baseNanos := basePts.Nanoseconds()
+	if baseNanos < 0 {
+		return nil, fmt.Errorf("invalid PTS for AAC frame: %d", baseNanos)
+	}
+	baseRtpTimestamp := uint32(uint64(baseNanos) * uint64(c.aacSampleRate) / 1000000000) //nolint:gosec // timestamp wrapping is intentional behavior per the RTP specification (RFC 3550).
 	for _, pkt := range pkts {
 		pkt.Timestamp = baseRtpTimestamp
 	}
