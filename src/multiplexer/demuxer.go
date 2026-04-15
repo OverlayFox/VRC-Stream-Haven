@@ -71,6 +71,8 @@ func (d *MpegTsDemuxer) Read(b []byte) (int, error) {
 }
 
 func (d *MpegTsDemuxer) write(pkt packet.Packet) error {
+	defer pkt.Decommission()
+
 	raw := pkt.Data()
 	if len(raw)%MpegTsPktSize != 0 {
 		return fmt.Errorf("bad TS packet size: %d", len(raw))
@@ -82,7 +84,10 @@ func (d *MpegTsDemuxer) write(pkt packet.Packet) error {
 	}
 	for i := 0; i < len(raw); i += MpegTsPktSize {
 		segment := raw[i : i+MpegTsPktSize]
-		if err := d.buffer.write(segment); err != nil {
+		segmentCopy := make([]byte, len(segment))
+		copy(segmentCopy, segment)
+
+		if err := d.buffer.write(segmentCopy); err != nil {
 			return fmt.Errorf("buffer write failed: %w", err)
 		}
 	}
@@ -246,30 +251,4 @@ func (d *MpegTsDemuxer) Close() {
 	d.wg.Wait()
 	d.astDemux = nil
 	d.buffer = nil
-}
-
-// --- Helper functions ---
-
-func mapStreamType(st astits.StreamType) codec.CodecID {
-	switch st {
-	case astits.StreamTypeAACAudio:
-		return codec.CODECID_AUDIO_AAC
-	case astits.StreamTypeH264Video:
-		return codec.CODECID_VIDEO_H264
-	default:
-		return codec.CODECID_UNRECOGNIZED
-	}
-}
-
-func unwrapTs(cur, last int64, set bool) int64 {
-	if !set {
-		return cur
-	}
-	diff := cur - (last % maxTsClock)
-	if diff > maxTsClock/2 {
-		return last + diff - maxTsClock
-	} else if diff < -maxTsClock/2 {
-		return last + diff + maxTsClock
-	}
-	return last + diff
 }

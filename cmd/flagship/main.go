@@ -10,20 +10,28 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/src/haven"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/rtsp"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/srt"
+	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 var logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}).With().Str("component", "flagship").Timestamp().Logger()
 
+func loadEnv() {
+	err := godotenv.Load()
+	if err != nil {
+		logger.Panic().Err(err).Msg("Error loading .env file")
+	}
+}
+
 func main() {
 	logger.Info().Msg("Starting in Flagship mode")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	loadEnv()
 
+	ctx, cancel := context.WithCancel(context.Background())
 	geoConf := geo.Config{
-		LicenseKey: "",
-		AccountID:  "",
+		LicenseKey: os.Getenv("MAX_MIND_LICENSE_KEY"),
+		AccountID:  os.Getenv("MAX_MIND_ACCOUNT_ID"),
 		Dir:        "./GeoDatabase",
 	}
 	locator, err := geo.NewLocator(ctx, logger, geoConf)
@@ -68,6 +76,6 @@ func main() {
 	signal.Notify(sig, os.Interrupt)
 	<-sig
 
-	log.Info().Msg("Received interrupt signal, shutting down...")
+	logger.Info().Msg("Received interrupt signal, shutting down...")
 	cancel()
 }

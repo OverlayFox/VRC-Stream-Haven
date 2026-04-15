@@ -12,7 +12,6 @@ import (
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/multiplexer"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
-	"github.com/bluenviron/gortsplib/v5"
 	goSrt "github.com/datarhei/gosrt"
 	"github.com/datarhei/gosrt/packet"
 	"github.com/rs/zerolog"
@@ -104,22 +103,6 @@ func (c *connection) GetLogger() zerolog.Logger {
 	return c.logger
 }
 
-// Deprecated: GetStream is not implemented for SRT connections as they will only read from the server.
-//
-// This is here to satisfy the Connection interface, but it will always return nil.
-// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
-func (c *connection) GetStream() *gortsplib.ServerStream {
-	return nil
-}
-
-// Deprecated: StartPlay is not implemented for SRT connections as they will only read from the server.
-//
-// This is here to satisfy the Connection interface, but it will always do nothing.
-// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
-func (c *connection) StartPlay() error {
-	return nil
-}
-
 func (c *connection) WritePacket(pkt packet.Packet) error {
 	err := c.conn.WritePacket(pkt)
 	if err != nil {
@@ -133,14 +116,6 @@ func (c *connection) WritePacket(pkt packet.Packet) error {
 		return err
 	}
 
-	return nil
-}
-
-// Deprecated: Write is not implemented for SRT connections as they need to write packets, not frames.
-//
-// This is here to satisfy the Connection interface, but it will always do nothing.
-// TODO: Remove the shared Connection interface and split it into separate PublisherConnection and ReaderConnection interfaces
-func (c *connection) Write(streams []types.BufferOutput) error {
 	return nil
 }
 

@@ -7,6 +7,7 @@ require (
 	github.com/bluenviron/gortsplib/v5 v5.5.1
 	github.com/bluenviron/mediacommon/v2 v2.8.3
 	github.com/datarhei/gosrt v0.9.0
+	github.com/joho/godotenv v1.5.1
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/paulmach/go.geo v0.0.0-20180829195134-22b514266d33
 	github.com/pion/rtp v1.10.1
