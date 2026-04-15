@@ -6,12 +6,13 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
+
 	"github.com/OverlayFox/VRC-Stream-Haven/src/geo"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/haven"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/rtsp"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/srt"
-	"github.com/joho/godotenv"
-	"github.com/rs/zerolog"
 )
 
 var logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}).With().Str("component", "flagship").Timestamp().Logger()
