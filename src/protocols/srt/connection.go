@@ -34,7 +34,31 @@ type connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, connReq goSrt.ConnRequest) (types.ConnectionSRT, error) {
+func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, conn goSrt.Conn) (types.ConnectionSRT, error) {
+	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
+	ctx, cancel := context.WithCancel(upstreamCtx)
+	c := &connection{
+		logger: logger,
+
+		conn:     conn,
+		connType: types.ConnectionTypePublisher,
+
+		demuxer: multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
+			InputBufferCap:  50,
+			OutputBufferCap: 200,
+			AudioDriftLimit: 20 * time.Millisecond,
+		}),
+
+		haven: haven,
+
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	return c, nil
+}
+
+func NewConnectionFromRequest(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, connReq goSrt.ConnRequest) (types.ConnectionSRT, error) {
 	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	c := &connection{
