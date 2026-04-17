@@ -59,6 +59,10 @@ func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, have
 	return s, nil
 }
 
+func (s *Server) Dial(address string, streamID, passphrase string) error {
+	return errors.New("dialing is not supported on RTSP server")
+}
+
 func (s *Server) Start() {
 	s.wg.Go(func() {
 		if err := s.server.StartAndWait(); err != nil {

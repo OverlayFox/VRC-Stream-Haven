@@ -119,7 +119,7 @@ func (s *server) Dial(address string, streamID, passphrase string) error {
 	if err != nil {
 		return fmt.Errorf("failed to dial SRT server at %s: %w", address, err)
 	}
-	connection, err := NewConnection(s.ctx, s.logger, s.haven, s.locator, conn)
+	connection, err := NewConnection(s.ctx, s.logger, s.haven, s.locator, conn, config)
 	if err != nil {
 		err = conn.Close()
 		if err != nil {
@@ -132,7 +132,6 @@ func (s *server) Dial(address string, streamID, passphrase string) error {
 		connection.Close()
 		return fmt.Errorf("failed to add SRT connection to haven: %w", err)
 	}
-
 	s.logger.Info().Str("remote_addr", address).Msg("Successfully connected to remote SRT server")
 
 	return nil

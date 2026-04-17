@@ -18,11 +18,19 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
+const (
+	initialBackoff    = 100 * time.Millisecond
+	maxBackoff        = 30 * time.Second
+	backoffMultiplier = 2.0
+)
+
 type connection struct {
 	logger zerolog.Logger
 
+	config   goSrt.Config
 	conn     goSrt.Conn
 	connType types.ConnectionType
+	isEscort bool
 
 	demuxer *multiplexer.MpegTsDemuxer
 
@@ -34,14 +42,16 @@ type connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, conn goSrt.Conn) (types.ConnectionSRT, error) {
+func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, conn goSrt.Conn, config goSrt.Config) (types.ConnectionSRT, error) {
 	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	c := &connection{
 		logger: logger,
 
+		config:   config,
 		conn:     conn,
 		connType: types.ConnectionTypePublisher,
+		isEscort: true,
 
 		demuxer: multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
 			InputBufferCap:  50,
@@ -63,6 +73,8 @@ func NewConnectionFromRequest(upstreamCtx context.Context, logger zerolog.Logger
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	c := &connection{
 		logger: logger,
+
+		isEscort: false,
 
 		demuxer: multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
 			InputBufferCap:  50,
@@ -186,6 +198,9 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 		defer close(pktCh)
 		defer close(errCh)
 
+		tries := 0
+		backoff := initialBackoff
+
 		for {
 			if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				select {
@@ -201,21 +216,45 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 				var netErr net.Error
 				switch {
 				case errors.Is(err, io.EOF), strings.Contains(err.Error(), "use of closed network connection"):
-					c.logger.Info().Err(err).Msg("SRT connection closed by peer or internally")
-					c.Close()
-					return
+					if !c.isEscort {
+						c.logger.Info().Err(err).Msg("SRT connection closed by peer or internally")
+						c.Close()
+						return
+					}
+
+					tries++
+					c.logger.Warn().Err(err).Int("attempt", tries).Dur("backoff", backoff).Msg("Failed to dial SRT server for escort connection, connection closed. Retrying...")
+					select {
+					case <-c.ctx.Done():
+						return
+					case <-time.After(backoff):
+						conn, err := goSrt.Dial("srt", c.conn.RemoteAddr().String(), c.config)
+						if err != nil {
+							c.logger.Error().Err(err).Msg("Failed to re-dial SRT server for escort connection")
+							backoff = min(time.Duration(float64(backoff)*backoffMultiplier), maxBackoff)
+							continue
+						}
+						c.conn = conn
+						c.logger.Info().Msg("Successfully reconnected to SRT server for escort connection")
+						tries = 0
+						backoff = initialBackoff
+						continue
+					}
+
 				case errors.As(err, &netErr) && netErr.Timeout():
 					c.logger.Debug().Msgf("SRT read deadline exceeded timeout, retrying...")
 					continue
+
 				default:
 					select {
 					case errCh <- fmt.Errorf("failed to read packet: %w", err):
 					default:
 					}
-					c.Close()
-					return
+					continue
 				}
 			}
+			tries = 0
+			backoff = initialBackoff
 
 			select {
 			case <-c.ctx.Done():
