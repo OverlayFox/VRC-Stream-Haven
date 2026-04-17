@@ -136,10 +136,6 @@ func (h *Haven) AddConnection(conn types.Connection) error {
 }
 
 func (h *Haven) addEscort(conn types.ConnectionSRT) error {
-	if !h.PublisherIsReady() {
-		return types.ErrPublisherNotFound
-	}
-
 	h.escorts = append(h.escorts, conn)
 
 	// Monitor the escort's context and remove it from the map when it is done

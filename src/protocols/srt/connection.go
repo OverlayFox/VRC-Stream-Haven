@@ -227,8 +227,10 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 					select {
 					case <-c.ctx.Done():
 						return
+
 					case <-time.After(backoff):
-						conn, err := goSrt.Dial("srt", c.conn.RemoteAddr().String(), c.config)
+						var conn goSrt.Conn
+						conn, err = goSrt.Dial("srt", c.conn.RemoteAddr().String(), c.config)
 						if err != nil {
 							c.logger.Error().Err(err).Msg("Failed to re-dial SRT server for escort connection")
 							backoff = min(time.Duration(float64(backoff)*backoffMultiplier), maxBackoff)
