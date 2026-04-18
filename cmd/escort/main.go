@@ -9,16 +9,9 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 
-	"github.com/OverlayFox/VRC-Stream-Haven/src/geo"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/haven"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/rtsp"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/srt"
-)
-
-const (
-	initialBackoff    = 100 * time.Millisecond
-	maxBackoff        = 30 * time.Second
-	backoffMultiplier = 2.0
 )
 
 var logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}).With().Str("component", "escort").Timestamp().Logger()
@@ -36,20 +29,9 @@ func main() {
 	loadEnv()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	geoConf := geo.Config{
-		LicenseKey: os.Getenv("MAX_MIND_LICENSE_KEY"),
-		AccountID:  os.Getenv("MAX_MIND_ACCOUNT_ID"),
-		Dir:        "./GeoDatabase",
-	}
-	locator, err := geo.NewLocator(ctx, logger, geoConf)
+	haven, err := haven.NewHaven(ctx, logger, nil, "thisisaverysecurepassphrase", "test")
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create geo locator")
-		return
-	}
-
-	haven, err := haven.NewHaven(ctx, logger, locator, "thisisaverysecurepassphrase", "test")
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create haven")
+		logger.Panic().Err(err).Msg("Failed to create haven")
 		return
 	}
 
@@ -61,9 +43,9 @@ func main() {
 		WriteTimeout:   10 * time.Second,
 		WriteQueueSize: 8192,
 	}
-	rtspServer, err := rtsp.New(ctx, logger, rtspConf, haven, locator)
+	rtspServer, err := rtsp.New(ctx, logger, rtspConf, haven, nil)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create RTSP server")
+		logger.Panic().Err(err).Msg("Failed to create RTSP server")
 		return
 	}
 	rtspServer.Start()
@@ -72,32 +54,16 @@ func main() {
 		Address: "0.0.0.0",
 		Port:    8891,
 	}
-	srtServer, err := srt.New(ctx, logger, srtConfig, haven, locator)
+	srtServer, err := srt.New(ctx, logger, srtConfig, haven, nil)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create SRT server")
+		logger.Panic().Err(err).Msg("Failed to create SRT server")
 		return
 	}
 
 	err = srtServer.Dial("127.0.0.1:8890", "escort:ingest", "thisisaverysecurepassphrase")
 	if err != nil {
-		tries := 0
-		backoff := initialBackoff
-	testBreak:
-		for {
-			tries++
-			logger.Warn().Err(err).Int("attempt", tries).Dur("backoff", backoff).Msg("Failed to dial SRT server for escort connection, connection closed. Retrying...")
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(backoff):
-				err = srtServer.Dial("127.0.0.1:8890", "escort:ingest", "thisisaverysecurepassphrase")
-				if err != nil {
-					backoff = min(time.Duration(float64(backoff)*backoffMultiplier), maxBackoff)
-					continue
-				}
-				break testBreak
-			}
-		}
+		logger.Panic().Err(err).Msg("Failed to dial SRT server")
+		return
 	}
 
 	sig := make(chan os.Signal, 1)

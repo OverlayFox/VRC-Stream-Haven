@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	gosrt "github.com/datarhei/gosrt"
 	"github.com/rs/zerolog"
@@ -112,13 +113,27 @@ func (s *server) Dial(address string, streamID, passphrase string) error {
 	if passphrase != "" {
 		config.Passphrase = passphrase
 	}
+	s.logger.Info().Str("remote_addr", address).Str("stream_id", streamID).Msg("Dialing remote Flagship SRT server")
 
-	s.logger.Info().Str("remote_addr", address).Str("stream_id", streamID).Msg("Dialing remote SRT server")
-
-	conn, err := gosrt.Dial("srt", address, config)
-	if err != nil {
-		return fmt.Errorf("failed to dial SRT server at %s: %w", address, err)
+	var conn gosrt.Conn
+	tries := 0
+	backoff := initialBackoff
+	for {
+		var err error
+		conn, err = gosrt.Dial("srt", address, config)
+		if err == nil {
+			break
+		}
+		tries++
+		s.logger.Warn().Err(err).Int("attempt", tries).Int64("backoff_ms", backoff.Milliseconds()).Msg("Failed to establish initial connection with Flagship SRT server, Retrying...")
+		select {
+		case <-s.ctx.Done():
+			return s.ctx.Err()
+		case <-time.After(backoff):
+			continue
+		}
 	}
+
 	connection, err := NewConnection(s.ctx, s.logger, s.haven, s.locator, conn, config)
 	if err != nil {
 		err = conn.Close()
@@ -132,7 +147,7 @@ func (s *server) Dial(address string, streamID, passphrase string) error {
 		connection.Close()
 		return fmt.Errorf("failed to add SRT connection to haven: %w", err)
 	}
-	s.logger.Info().Str("remote_addr", address).Msg("Successfully connected to remote SRT server")
+	s.logger.Info().Str("remote_addr", address).Msg("Successfully connected to remote Flagship SRT server")
 
 	return nil
 }
