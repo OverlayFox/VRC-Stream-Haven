@@ -27,7 +27,7 @@ type Connection struct {
 	muxer         *gohlslib.Muxer
 	videoTrack    *gohlslib.Track
 	audioTrack    *gohlslib.Track
-	aacSampleRate uint
+	aacSampleRate int
 
 	wg     sync.WaitGroup
 	mtx    sync.RWMutex
@@ -136,6 +136,10 @@ func (c *Connection) Close() {
 // Helper functions
 //
 
+// extractMetadata reads from the provided video and audio channels and writes them to new channels in place.
+// It extracts the SPS/PPS from the video stream and the Audio Specific Config from the audio stream, which are needed to prime the HLS muxer.
+//
+//nolint:gocognit // This function is a bit complex due to the need to read from both channels concurrently and wait until both metadata are extracted before returning.
 func (c *Connection) extractMetadata(videoCh, audioCh *chan types.Frame) (sps, pps []byte, asc *mpeg4audio.AudioSpecificConfig, err error) {
 	upstreamVideoCh := *videoCh
 	upstreamAudioCh := *audioCh
@@ -224,7 +228,7 @@ func (c *Connection) primeMuxer(sps, pps []byte, asc *mpeg4audio.AudioSpecificCo
 		},
 		ClockRate: asc.SampleRate,
 	}
-	c.aacSampleRate = uint(asc.SampleRate)
+	c.aacSampleRate = asc.SampleRate
 
 	c.muxer = &gohlslib.Muxer{
 		Variant:            gohlslib.MuxerVariantMPEGTS,

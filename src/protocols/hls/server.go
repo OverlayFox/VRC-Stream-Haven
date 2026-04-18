@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -51,14 +53,15 @@ func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, have
 		cancel: cancel,
 	}
 	s.httpServer = &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", config.Address, config.Port),
-		Handler: s,
+		Addr:        fmt.Sprintf("%s:%d", config.Address, config.Port),
+		Handler:     s,
+		ReadTimeout: 10 * time.Second,
 	}
 
 	return s, nil
 }
 
-func (s *Server) Dial(address, streamId, passphrase string) error {
+func (s *Server) Dial(address, streamID, passphrase string) error {
 	return errors.New("HLS server does not support dialing out to other servers")
 }
 
@@ -139,38 +142,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var location types.Location
 	if s.isFlagship {
-		addr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
-		if err != nil {
-			s.logger.Error().Err(err).Str("client_ip", r.RemoteAddr).Msg("Failed to resolve client address")
-			http.Error(w, "Failed to resolve client address", http.StatusInternalServerError)
+		if s.tryRedirectToEscort(w, r) {
 			return
-		}
-
-		location, err = s.locator.GetLocation(addr)
-		if err == nil {
-			escort := s.haven.GetClosestEscort(location)
-			if escort != nil {
-				target := *r.URL
-				target.Scheme = "http"
-				target.Host = escort.GetAddr().String()
-
-				if strings.HasSuffix(r.URL.Path, "index.m3u8") {
-					targetPath := strings.Replace(r.URL.Path, "index.m3u8", "main_stream.m3u8", 1)
-					target.Path = targetPath
-
-					w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-					w.WriteHeader(http.StatusOK)
-
-					manifest := fmt.Sprintf("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000\n%s\n", target.String())
-					w.Write([]byte(manifest))
-					s.logger.Info().Str("client_ip", r.RemoteAddr).Str("target", target.String()).Msg("Served absolute manifest redirect")
-					return
-				}
-
-				s.logger.Info().Str("client_ip", r.RemoteAddr).Str("redirect_uri", target.String()).Msg("Redirecting stray HLS request")
-				http.Redirect(w, r, target.String(), http.StatusMovedPermanently)
-				return
-			}
 		}
 	}
 
@@ -189,4 +162,66 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Push the HLS request down to the underlying `gohlslib.Muxer`
 	s.connection.HandleHTTP(w, r)
+}
+
+func (s *Server) tryRedirectToEscort(w http.ResponseWriter, r *http.Request) bool {
+	addr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+	if err != nil {
+		s.logger.Error().Err(err).Str("client_ip", r.RemoteAddr).Msg("Failed to resolve client address")
+		http.Error(w, "Failed to resolve client address", http.StatusInternalServerError)
+		return true // handled (with error)
+	}
+
+	location, err := s.locator.GetLocation(addr)
+	if err != nil {
+		return false // no redirect, continue locally
+	}
+
+	escort := s.haven.GetClosestEscort(location)
+	if escort == nil {
+		return false // no escort, continue locally
+	}
+
+	target := *r.URL
+	target.Scheme = "http"
+	target.Host = escort.GetAddr().String()
+
+	if strings.HasSuffix(r.URL.Path, "index.m3u8") {
+		s.serveManifestRedirect(w, r, &target)
+		return true
+	}
+
+	s.logger.Info().Str("client_ip", r.RemoteAddr).Str("redirect_uri", target.String()).Msg("Redirecting stray HLS request")
+	http.Redirect(w, r, target.String(), http.StatusMovedPermanently)
+	return true
+}
+
+func (s *Server) serveManifestRedirect(w http.ResponseWriter, r *http.Request, target *url.URL) {
+	targetPath := strings.Replace(r.URL.Path, "index.m3u8", "main_stream.m3u8", 1)
+	target.Path = targetPath
+
+	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+	w.WriteHeader(http.StatusOK)
+
+	targetURL := target.String()
+	if !isValidURL(targetURL) {
+		s.logger.Error().Str("client_ip", r.RemoteAddr).Str("url", targetURL).Msg("Invalid redirect URL")
+		return
+	}
+
+	manifest := fmt.Sprintf("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000\n%s\n", targetURL)
+	_, err := w.Write([]byte(manifest)) // #nosec G705 -- URL validated
+	if err != nil {
+		s.logger.Error().Err(err).Str("client_ip", r.RemoteAddr).Msg("Failed to write manifest response")
+		return
+	}
+	s.logger.Info().Str("client_ip", r.RemoteAddr).Str("target", targetURL).Msg("Served absolute manifest redirect")
+}
+
+func isValidURL(urlStr string) bool {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
+	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
