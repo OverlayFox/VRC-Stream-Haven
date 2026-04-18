@@ -13,6 +13,12 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
+const (
+	initialBackoff    = 100 * time.Millisecond
+	maxBackoff        = 30 * time.Second
+	backoffMultiplier = 2.0
+)
+
 type Config struct {
 	Address string
 	Port    int
@@ -134,7 +140,7 @@ func (s *server) Dial(address string, streamID, passphrase string) error {
 		}
 	}
 
-	connection, err := NewConnection(s.ctx, s.logger, s.haven, s.locator, conn, config)
+	connection, err := NewConnection(s.ctx, s.logger, s.haven, s.locator, conn, s, config)
 	if err != nil {
 		err = conn.Close()
 		if err != nil {

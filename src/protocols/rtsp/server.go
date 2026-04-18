@@ -111,9 +111,13 @@ func (s *Server) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 // This function handles redirections.
 func (s *Server) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	conn := ctx.Conn.NetConn()
-	location, err := s.locator.GetLocation(conn.RemoteAddr())
-	if err != nil {
-		location = types.Location{}
+	location := types.Location{}
+	if s.isFlagship {
+		var err error
+		location, err = s.locator.GetLocation(conn.RemoteAddr())
+		if err != nil {
+			location = types.Location{}
+		}
 	}
 	connection := NewConnection(s.logger, s.ctx, conn, location, s.server, ctx.Conn.Session())
 	connLogger := connection.GetLogger()

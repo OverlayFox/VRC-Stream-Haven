@@ -18,16 +18,11 @@ import (
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
 )
 
-const (
-	initialBackoff    = 100 * time.Millisecond
-	maxBackoff        = 30 * time.Second
-	backoffMultiplier = 2.0
-)
-
 type connection struct {
 	logger zerolog.Logger
 
 	config   goSrt.Config
+	server   types.ProtocolServer
 	conn     goSrt.Conn
 	connType types.ConnectionType
 	isEscort bool
@@ -42,15 +37,16 @@ type connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, conn goSrt.Conn, config goSrt.Config) (types.ConnectionSRT, error) {
+func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, conn goSrt.Conn, server types.ProtocolServer, config goSrt.Config) (types.ConnectionSRT, error) {
 	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	c := &connection{
 		logger: logger,
 
 		config:   config,
+		server:   server,
 		conn:     conn,
-		connType: types.ConnectionTypePublisher,
+		connType: types.ConnectionTypePublishingEscort,
 		isEscort: true,
 
 		demuxer: multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
@@ -198,8 +194,6 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 		defer close(pktCh)
 		defer close(errCh)
 
-		tries := 0
-		backoff := initialBackoff
 		for {
 			if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				select {
@@ -217,31 +211,14 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 				case errors.Is(err, io.EOF), strings.Contains(err.Error(), "use of closed network connection"):
 					if !c.isEscort {
 						c.logger.Info().Err(err).Msg("SRT connection closed by peer or internally")
-						c.Close()
-						return
+					} else {
+						c.logger.Info().Err(err).Msg("SRT connection to flagship closed, retrying to connect...")
+						go func() {
+							_ = c.server.Dial(c.GetAddr().String(), fmt.Sprintf("escort:%s", c.haven.GetStreamID()), c.haven.GetPassphrase())
+						}()
 					}
-
-					tries++
-					c.logger.Warn().Err(err).Int("attempt", tries).Dur("backoff", backoff).Msg("SRT connection closed, attempting to reconnect to flagship SRT server...")
-					select {
-					case <-c.ctx.Done():
-						return
-
-					case <-time.After(backoff):
-						var conn goSrt.Conn
-						conn, err = goSrt.Dial("srt", c.conn.RemoteAddr().String(), c.config)
-						if err != nil {
-							c.logger.Error().Err(err).Msg("Failed to re-dial SRT server for escort connection")
-							backoff = min(time.Duration(float64(backoff)*backoffMultiplier), maxBackoff)
-							continue
-						}
-						_ = c.conn.Close() // make sure the old connection is fully closed before replacing it
-						c.conn = conn
-						c.logger.Info().Msg("Successfully reconnected to flagship SRT server.")
-						tries = 0
-						backoff = initialBackoff
-						continue
-					}
+					c.Close()
+					return
 
 				case errors.As(err, &netErr) && netErr.Timeout():
 					c.logger.Debug().Msgf("SRT read deadline exceeded timeout, retrying...")
@@ -255,8 +232,6 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 					continue
 				}
 			}
-			tries = 0
-			backoff = initialBackoff
 
 			select {
 			case <-c.ctx.Done():

@@ -13,19 +13,19 @@ import (
 type ConnectionType string
 
 const (
-	ConnectionTypeUnknown   ConnectionType = "unknown"
-	ConnectionTypePublisher ConnectionType = "publish"
-	ConnectionTypeReader    ConnectionType = "read"
-	ConnectionTypeEscort    ConnectionType = "escort"
-	ConnectionTypeLeech     ConnectionType = "leech"
+	ConnectionTypeUnknown          ConnectionType = "unknown"
+	ConnectionTypePublisher        ConnectionType = "publish"
+	ConnectionTypeReader           ConnectionType = "read"
+	ConnectionTypeEscort           ConnectionType = "escort"
+	ConnectionTypePublishingEscort ConnectionType = "publishing_escort" // an escort connection that is also a publisher, i.e. it receives the stream from an upstream flagship and republishes it to downstream escorts/viewers
 )
 
 var connectionTypeStrings = map[string]ConnectionType{
-	"unknown": ConnectionTypeUnknown,
-	"publish": ConnectionTypePublisher,
-	"read":    ConnectionTypeReader,
-	"escort":  ConnectionTypeEscort,
-	"leech":   ConnectionTypeLeech,
+	"unknown":           ConnectionTypeUnknown,
+	"publish":           ConnectionTypePublisher,
+	"read":              ConnectionTypeReader,
+	"escort":            ConnectionTypeEscort,
+	"publishing_escort": ConnectionTypePublishingEscort,
 }
 
 func (c ConnectionType) String() string {
