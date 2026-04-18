@@ -131,15 +131,31 @@ func (l *Locator) loadDatabase() error {
 	var newestTime time.Time
 
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".mmdb") {
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			if info.ModTime().After(newestTime) {
-				newestTime = info.ModTime()
-				newestFile = filepath.Join(l.dbDir, e.Name())
-			}
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".mmdb") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().After(newestTime) {
+			newestTime = info.ModTime()
+			newestFile = filepath.Join(l.dbDir, e.Name())
+		}
+	}
+
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".mmdb") {
+			continue
+		}
+		fullPath := filepath.Join(l.dbDir, e.Name())
+		if fullPath == newestFile {
+			continue
+		}
+		if err := os.Remove(fullPath); err != nil {
+			l.logger.Warn().Err(err).Msgf("Failed to remove old database file '%s'", e.Name())
+		} else {
+			l.logger.Info().Msgf("Removed old database file '%s'", e.Name())
 		}
 	}
 
