@@ -59,6 +59,10 @@ func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, have
 	return s, nil
 }
 
+func (s *Server) Dial(address string, streamID, passphrase string) error {
+	return errors.New("dialing is not supported on RTSP server")
+}
+
 func (s *Server) Start() {
 	s.wg.Go(func() {
 		if err := s.server.StartAndWait(); err != nil {
@@ -107,9 +111,13 @@ func (s *Server) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 // This function handles redirections.
 func (s *Server) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	conn := ctx.Conn.NetConn()
-	location, err := s.locator.GetLocation(conn.RemoteAddr())
-	if err != nil {
-		location = types.Location{}
+	location := types.Location{}
+	if s.isFlagship {
+		var err error
+		location, err = s.locator.GetLocation(conn.RemoteAddr())
+		if err != nil {
+			location = types.Location{}
+		}
 	}
 	connection := NewConnection(s.logger, s.ctx, conn, location, s.server, ctx.Conn.Session())
 	connLogger := connection.GetLogger()

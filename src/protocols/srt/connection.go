@@ -21,8 +21,11 @@ import (
 type connection struct {
 	logger zerolog.Logger
 
+	config   goSrt.Config
+	server   types.ProtocolServer
 	conn     goSrt.Conn
 	connType types.ConnectionType
+	isEscort bool
 
 	demuxer *multiplexer.MpegTsDemuxer
 
@@ -34,11 +37,40 @@ type connection struct {
 	cancel context.CancelFunc
 }
 
-func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, connReq goSrt.ConnRequest) (types.ConnectionSRT, error) {
+func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, conn goSrt.Conn, server types.ProtocolServer, config goSrt.Config) (types.ConnectionSRT, error) {
 	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	c := &connection{
 		logger: logger,
+
+		config:   config,
+		server:   server,
+		conn:     conn,
+		connType: types.ConnectionTypePublishingEscort,
+		isEscort: true,
+
+		demuxer: multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
+			InputBufferCap:  50,
+			OutputBufferCap: 200,
+			AudioDriftLimit: 20 * time.Millisecond,
+		}),
+
+		haven: haven,
+
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	return c, nil
+}
+
+func NewConnectionFromRequest(upstreamCtx context.Context, logger zerolog.Logger, haven types.Haven, locator types.Locator, connReq goSrt.ConnRequest) (types.ConnectionSRT, error) {
+	logger = logger.With().Str("type", "srt").Logger() // TODO: add IP and location once we have them
+	ctx, cancel := context.WithCancel(upstreamCtx)
+	c := &connection{
+		logger: logger,
+
+		isEscort: false,
 
 		demuxer: multiplexer.NewMpegTsDemuxer(ctx, logger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
 			InputBufferCap:  50,
@@ -177,19 +209,27 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 				var netErr net.Error
 				switch {
 				case errors.Is(err, io.EOF), strings.Contains(err.Error(), "use of closed network connection"):
-					c.logger.Info().Err(err).Msg("SRT connection closed by peer or internally")
+					if !c.isEscort {
+						c.logger.Info().Err(err).Msg("SRT connection closed by peer or internally")
+					} else {
+						c.logger.Info().Err(err).Msg("SRT connection to flagship closed, retrying to connect...")
+						go func() {
+							_ = c.server.Dial(c.GetAddr().String(), fmt.Sprintf("escort:%s", c.haven.GetStreamID()), c.haven.GetPassphrase())
+						}()
+					}
 					c.Close()
 					return
+
 				case errors.As(err, &netErr) && netErr.Timeout():
 					c.logger.Debug().Msgf("SRT read deadline exceeded timeout, retrying...")
 					continue
+
 				default:
 					select {
 					case errCh <- fmt.Errorf("failed to read packet: %w", err):
 					default:
 					}
-					c.Close()
-					return
+					continue
 				}
 			}
 

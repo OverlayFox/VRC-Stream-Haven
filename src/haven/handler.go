@@ -118,7 +118,7 @@ func (h *Haven) AddConnection(conn types.Connection) error {
 			return errors.New("invalid connection type for escort")
 		}
 		return h.addEscort(conn)
-	case types.ConnectionTypePublisher:
+	case types.ConnectionTypePublisher, types.ConnectionTypePublishingEscort:
 		conn, ok := conn.(types.ConnectionSRT)
 		if !ok {
 			return errors.New("invalid connection type for publisher")
@@ -136,10 +136,6 @@ func (h *Haven) AddConnection(conn types.Connection) error {
 }
 
 func (h *Haven) addEscort(conn types.ConnectionSRT) error {
-	if !h.PublisherIsReady() {
-		return types.ErrPublisherNotFound
-	}
-
 	h.escorts = append(h.escorts, conn)
 
 	// Monitor the escort's context and remove it from the map when it is done
@@ -236,7 +232,6 @@ func (h *Haven) addPublisher(conn types.ConnectionSRT) error {
 			h.clearPublisher()
 		}
 	})
-
 	h.readFromPublisher()
 
 	return nil
@@ -256,7 +251,6 @@ func (h *Haven) initPublisher() {
 		h.demuxer.Close()
 		h.demuxer = nil
 	}
-
 	h.demuxer = multiplexer.NewMpegTsDemuxer(h.publisher.GetCtx(), publisherLogger.With().Str("component", "demuxer").Logger(), multiplexer.Settings{
 		InputBufferCap:  50,
 		OutputBufferCap: 200,
@@ -269,12 +263,12 @@ func (h *Haven) clearPublisher() {
 	defer h.publisherMtx.Unlock()
 
 	h.escortMtx.Lock()
-	defer h.escortMtx.Unlock()
 	for _, escort := range h.escorts {
 		h.logger.Info().Msgf("Closing escort '%s' as publisher has disconnected", escort.GetAddr().String())
 		escort.Close()
 	}
 	h.escorts = make([]types.ConnectionSRT, 0)
+	h.escortMtx.Unlock()
 
 	h.viewersMtx.Lock()
 	for addr, viewer := range h.viewers {

@@ -5,11 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
-	goSrt "github.com/datarhei/gosrt"
+	gosrt "github.com/datarhei/gosrt"
 	"github.com/rs/zerolog"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/types"
+)
+
+const (
+	initialBackoff    = 100 * time.Millisecond
+	maxBackoff        = 30 * time.Second
+	backoffMultiplier = 2.0
 )
 
 type Config struct {
@@ -24,7 +31,7 @@ type server struct {
 	haven   types.Haven
 	locator types.Locator
 
-	listener goSrt.Listener
+	listener gosrt.Listener
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -32,7 +39,7 @@ type server struct {
 }
 
 func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, haven types.Haven, locator types.Locator) (types.ProtocolServer, error) {
-	listener, err := goSrt.Listen("srt", fmt.Sprintf("%s:%d", config.Address, config.Port), goSrt.DefaultConfig()) // TODO: Optimise DefaultConfig() for large WAN hops
+	listener, err := gosrt.Listen("srt", fmt.Sprintf("%s:%d", config.Address, config.Port), gosrt.DefaultConfig()) // TODO: Optimise DefaultConfig() for large WAN hops
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +61,7 @@ func New(upstreamCtx context.Context, logger zerolog.Logger, config Config, have
 }
 
 func (s *server) Start() {
-	acceptCh := make(chan goSrt.ConnRequest, 10)
+	acceptCh := make(chan gosrt.ConnRequest, 10)
 	errCh := make(chan error, 1)
 
 	// start listener
@@ -62,7 +69,7 @@ func (s *server) Start() {
 		for {
 			req, err := s.listener.Accept2()
 			if err != nil {
-				if errors.Is(err, goSrt.ErrListenerClosed) {
+				if errors.Is(err, gosrt.ErrListenerClosed) {
 					s.logger.Info().Msg("SRT listener closed")
 					return
 				}
@@ -87,7 +94,7 @@ func (s *server) Start() {
 				connectionLogger.Info().Msg("Accepted new SRT connection")
 
 				go func() {
-					conn, err := NewConnection(s.ctx, connectionLogger, s.haven, s.locator, req)
+					conn, err := NewConnectionFromRequest(s.ctx, connectionLogger, s.haven, s.locator, req)
 					if err != nil {
 						connectionLogger.Error().Err(err).Msg("Failed to handle SRT connection")
 						return
@@ -102,6 +109,53 @@ func (s *server) Start() {
 			}
 		}
 	})
+}
+
+func (s *server) Dial(address string, streamID, passphrase string) error {
+	config := gosrt.DefaultConfig()
+	if streamID != "" {
+		config.StreamId = streamID
+	}
+	if passphrase != "" {
+		config.Passphrase = passphrase
+	}
+	s.logger.Info().Str("remote_addr", address).Str("stream_id", streamID).Msg("Dialing remote Flagship SRT server")
+
+	var conn gosrt.Conn
+	tries := 0
+	backoff := initialBackoff
+	for {
+		var err error
+		conn, err = gosrt.Dial("srt", address, config)
+		if err == nil {
+			break
+		}
+		tries++
+		s.logger.Warn().Err(err).Int("attempt", tries).Int64("backoff_ms", backoff.Milliseconds()).Msg("Failed to establish initial connection with Flagship SRT server, Retrying...")
+		select {
+		case <-s.ctx.Done():
+			return s.ctx.Err()
+		case <-time.After(backoff):
+			continue
+		}
+	}
+
+	connection, err := NewConnection(s.ctx, s.logger, s.haven, s.locator, conn, s, config)
+	if err != nil {
+		err = conn.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close SRT connection after dial failure: %w", err)
+		}
+		return fmt.Errorf("failed to create SRT connection: %w", err)
+	}
+
+	if err := s.haven.AddConnection(connection); err != nil {
+		connection.Close()
+		return fmt.Errorf("failed to add SRT connection to haven: %w", err)
+	}
+	s.logger.Info().Str("remote_addr", address).Msg("Successfully connected to remote Flagship SRT server")
+
+	return nil
 }
 
 func (s *server) Close() {
