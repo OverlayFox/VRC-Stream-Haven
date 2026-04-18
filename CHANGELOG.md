@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- added HLS server and connection play out for last-mile stream instead of RTSP
 - added SRT-Pull for escorts
 
 ### Changed
 
 - improved Database cleanup
+
+### Removed
+
+- removed RTSP server and connection due to VR-Chat not implementing RTSP return codes

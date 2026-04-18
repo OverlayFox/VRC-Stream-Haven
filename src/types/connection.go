@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"net/http"
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/datarhei/gosrt/packet"
@@ -77,4 +78,5 @@ type ConnectionRTSP interface {
 	Write(stream []BufferOutput) error
 	GetStream() *gortsplib.ServerStream
 	StartPlay() error
+	HandleHTTP(w http.ResponseWriter, r *http.Request)
 }
