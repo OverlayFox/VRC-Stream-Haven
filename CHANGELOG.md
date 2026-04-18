@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- added SRT-Pull for Escorts
+- added SRT-Pull for escorts
 
 ### Changed
 
