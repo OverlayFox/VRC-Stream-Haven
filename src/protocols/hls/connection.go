@@ -36,7 +36,8 @@ type Connection struct {
 }
 
 func NewConnection(upstreamCtx context.Context, logger zerolog.Logger, location types.Location) types.ConnectionRTSP {
-	logger = logger.With().Str("protocol", "hls").Str("location", location.String()).Logger()
+	// logger = logger.With().Str("protocol", "hls").Str("location", location.String()).Logger()
+	logger = logger.With().Str("protocol", "hls").Logger()
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	return &Connection{
 		logger:   logger,

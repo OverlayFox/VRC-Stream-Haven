@@ -36,16 +36,16 @@ func main() {
 	}
 
 	hlsConf := hls.Config{
-		Port:           8554,
+		Port:           8555,
 		Address:        "0.0.0.0",
 		Passphrase:     "thisisaverysecurepassphrase",
-		IsFlagship:     true,
+		IsFlagship:     false,
 		WriteTimeout:   10 * time.Second,
 		WriteQueueSize: 8192,
 	}
 	hlsServer, err := hls.New(ctx, logger, hlsConf, haven, nil)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create HLS server")
+		logger.Panic().Err(err).Msg("Failed to create HLS server")
 		return
 	}
 	hlsServer.Start()

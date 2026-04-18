@@ -37,13 +37,13 @@ func main() {
 	}
 	locator, err := geo.NewLocator(ctx, logger, geoConf)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create geo locator")
+		logger.Panic().Err(err).Msg("Failed to create geo locator")
 		return
 	}
 
 	haven, err := haven.NewHaven(ctx, logger, locator, "thisisaverysecurepassphrase", "test")
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create haven")
+		logger.Panic().Err(err).Msg("Failed to create haven")
 		return
 	}
 
@@ -57,7 +57,7 @@ func main() {
 	}
 	hlsServer, err := hls.New(ctx, logger, hlsConf, haven, locator)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create HLS server")
+		logger.Panic().Err(err).Msg("Failed to create HLS server")
 		return
 	}
 	hlsServer.Start()
@@ -68,7 +68,7 @@ func main() {
 	}
 	srtServer, err := srt.New(ctx, logger, srtConfig, haven, locator)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create SRT server")
+		logger.Panic().Err(err).Msg("Failed to create SRT server")
 		return
 	}
 	srtServer.Start()
