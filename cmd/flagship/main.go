@@ -11,7 +11,7 @@ import (
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/geo"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/haven"
-	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/rtsp"
+	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/hls"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/srt"
 )
 
@@ -47,7 +47,7 @@ func main() {
 		return
 	}
 
-	rtspConf := rtsp.Config{
+	hlsConf := hls.Config{
 		Port:           8554,
 		Address:        "0.0.0.0",
 		Passphrase:     "thisisaverysecurepassphrase",
@@ -55,12 +55,12 @@ func main() {
 		WriteTimeout:   10 * time.Second,
 		WriteQueueSize: 8192,
 	}
-	rtspServer, err := rtsp.New(ctx, logger, rtspConf, haven, locator)
+	hlsServer, err := hls.New(ctx, logger, hlsConf, haven, locator)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create RTSP server")
+		logger.Fatal().Err(err).Msg("Failed to create HLS server")
 		return
 	}
-	rtspServer.Start()
+	hlsServer.Start()
 
 	srtConfig := srt.Config{
 		Address: "0.0.0.0",

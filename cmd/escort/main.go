@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/OverlayFox/VRC-Stream-Haven/src/haven"
-	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/rtsp"
+	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/hls"
 	"github.com/OverlayFox/VRC-Stream-Haven/src/protocols/srt"
 )
 
@@ -35,20 +35,20 @@ func main() {
 		return
 	}
 
-	rtspConf := rtsp.Config{
-		Port:           8555,
+	hlsConf := hls.Config{
+		Port:           8554,
 		Address:        "0.0.0.0",
 		Passphrase:     "thisisaverysecurepassphrase",
-		IsFlagship:     false,
+		IsFlagship:     true,
 		WriteTimeout:   10 * time.Second,
 		WriteQueueSize: 8192,
 	}
-	rtspServer, err := rtsp.New(ctx, logger, rtspConf, haven, nil)
+	hlsServer, err := hls.New(ctx, logger, hlsConf, haven, nil)
 	if err != nil {
-		logger.Panic().Err(err).Msg("Failed to create RTSP server")
+		logger.Fatal().Err(err).Msg("Failed to create HLS server")
 		return
 	}
-	rtspServer.Start()
+	hlsServer.Start()
 
 	srtConfig := srt.Config{
 		Address: "0.0.0.0",
