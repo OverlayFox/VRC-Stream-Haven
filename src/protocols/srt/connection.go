@@ -200,7 +200,6 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 
 		tries := 0
 		backoff := initialBackoff
-
 		for {
 			if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				select {
@@ -223,7 +222,7 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 					}
 
 					tries++
-					c.logger.Warn().Err(err).Int("attempt", tries).Dur("backoff", backoff).Msg("Failed to dial SRT server for escort connection, connection closed. Retrying...")
+					c.logger.Warn().Err(err).Int("attempt", tries).Dur("backoff", backoff).Msg("SRT connection closed, attempting to reconnect to flagship SRT server...")
 					select {
 					case <-c.ctx.Done():
 						return
@@ -236,8 +235,9 @@ func (c *connection) read() (chan packet.Packet, chan error) {
 							backoff = min(time.Duration(float64(backoff)*backoffMultiplier), maxBackoff)
 							continue
 						}
+						_ = c.conn.Close() // make sure the old connection is fully closed before replacing it
 						c.conn = conn
-						c.logger.Info().Msg("Successfully reconnected to SRT server for escort connection")
+						c.logger.Info().Msg("Successfully reconnected to flagship SRT server.")
 						tries = 0
 						backoff = initialBackoff
 						continue

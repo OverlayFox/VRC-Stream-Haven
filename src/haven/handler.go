@@ -264,13 +264,8 @@ func (h *Haven) clearPublisher() {
 	h.publisherMtx.Lock()
 	defer h.publisherMtx.Unlock()
 
-	h.escortMtx.Lock()
-	defer h.escortMtx.Unlock()
-	for _, escort := range h.escorts {
-		h.logger.Info().Msgf("Closing escort '%s' as publisher has disconnected", escort.GetAddr().String())
-		escort.Close()
-	}
-	h.escorts = make([]types.ConnectionSRT, 0)
+	// we do not close escorts here, because they will wait indefinitely for a new publisher
+	// disconnecting them would cause a lot of unnecessary reconnects if the publisher is just restarting or experiencing temporary network issues
 
 	h.viewersMtx.Lock()
 	for addr, viewer := range h.viewers {
