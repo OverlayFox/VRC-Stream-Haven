@@ -24,3 +24,8 @@ install-dev:
 	@echo "==> Installing development dependencies..."
 	curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.11.2
 	golangci-lint --version
+
+.PHONY: pprof-interactive
+pprof-interactive:
+	@echo "==> Starting pprof interactive mode..."
+	go tool pprof -http=:8080 http://localhost:6060/debug/pprof/heap

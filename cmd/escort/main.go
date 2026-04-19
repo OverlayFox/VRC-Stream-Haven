@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
@@ -16,6 +19,15 @@ import (
 
 var logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}).With().Str("component", "escort").Timestamp().Logger()
 
+func startPprof(port string) {
+	go func() {
+		logger.Info().Str("port", port).Msg("Starting pprof server")
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			logger.Error().Err(err).Msg("pprof server error")
+		}
+	}()
+}
+
 func loadEnv() {
 	err := godotenv.Load()
 	if err != nil {
@@ -25,8 +37,12 @@ func loadEnv() {
 
 func main() {
 	logger.Info().Msg("Starting in Escort mode")
-
 	loadEnv()
+
+	pprofPort := os.Getenv("PPROF_PORT_ESCORT")
+	if pprofPort != "" {
+		startPprof(pprofPort)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	haven, err := haven.NewHaven(ctx, logger, nil, "thisisaverysecurepassphrase", "test")
