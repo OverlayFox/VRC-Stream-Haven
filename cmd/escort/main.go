@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
-	_ "net/http/pprof"
-
+	pyroscope "github.com/grafana/pyroscope-go"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 
@@ -19,18 +17,27 @@ import (
 
 var logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}).With().Str("component", "escort").Timestamp().Logger()
 
-func startPprof(port string) {
-	go func() {
-		logger.Info().Str("port", port).Msg("Starting pprof server")
-		if err := http.ListenAndServe(":"+port, nil); err != nil {
-			logger.Error().Err(err).Msg("pprof server error")
-		}
-	}()
+func startPyroscope(serverAddress string) {
+	logger.Info().Str("address", serverAddress).Msg("Starting Pyroscope profiler")
+	_, err := pyroscope.Start(pyroscope.Config{
+		ApplicationName: "vrc-stream-haven.escort",
+		ServerAddress:   serverAddress,
+		ProfileTypes: []pyroscope.ProfileType{
+			pyroscope.ProfileCPU,
+			pyroscope.ProfileAllocObjects,
+			pyroscope.ProfileAllocSpace,
+			pyroscope.ProfileInuseObjects,
+			pyroscope.ProfileInuseSpace,
+			pyroscope.ProfileGoroutines,
+		},
+	})
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to start Pyroscope profiler")
+	}
 }
 
 func loadEnv() {
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		logger.Panic().Err(err).Msg("Error loading .env file")
 	}
 }
@@ -39,9 +46,9 @@ func main() {
 	logger.Info().Msg("Starting in Escort mode")
 	loadEnv()
 
-	pprofPort := os.Getenv("PPROF_PORT_ESCORT")
-	if pprofPort != "" {
-		startPprof(pprofPort)
+	pyroscopeAddr := os.Getenv("PYROSCOPE_SERVER_ADDRESS")
+	if pyroscopeAddr != "" {
+		startPyroscope(pyroscopeAddr)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
