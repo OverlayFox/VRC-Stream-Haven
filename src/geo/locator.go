@@ -106,6 +106,7 @@ func (l *Locator) GetLocation(addr net.Addr) (types.Location, error) {
 
 // Close cleans up resources.
 func (l *Locator) Close() error {
+	l.logger.Info().Msg("Shutting down geo locator...")
 	l.cancel()
 
 	l.dbMtx.Lock()
@@ -167,12 +168,7 @@ func (l *Locator) loadDatabase() error {
 }
 
 func (l *Locator) mountDatabase(path string) error {
-	bytes, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("failed to read database file: %w", err)
-	}
-
-	db, err := geoip2.FromBytes(bytes)
+	db, err := geoip2.Open(path)
 	if err != nil {
 		return fmt.Errorf("failed to load database: %w", err)
 	}

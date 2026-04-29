@@ -150,13 +150,22 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.connMtx.Lock()
 	if s.connection == nil {
 		s.logger.Info().Str("client_ip", r.RemoteAddr).Msg("First LL-HLS viewer connected, priming stream muxer...")
-		s.connection = NewConnection(s.ctx, s.logger, location)
-		if err := s.haven.AddConnection(s.connection); err != nil {
+		conn := NewConnection(s.ctx, s.logger, location)
+		if err := s.haven.AddConnection(conn); err != nil {
 			s.connMtx.Unlock()
 			s.logger.Error().Err(err).Str("client_ip", r.RemoteAddr).Msg("Failed to hook HLS connection to stream haven")
 			http.Error(w, "Failed to initialize stream", http.StatusInternalServerError)
 			return
 		}
+		s.connection = conn
+		s.wg.Go(func() {
+			<-conn.GetCtx().Done()
+			s.connMtx.Lock()
+			if s.connection == conn {
+				s.connection = nil
+			}
+			s.connMtx.Unlock()
+		})
 	}
 	s.connMtx.Unlock()
 
