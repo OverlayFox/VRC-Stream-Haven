@@ -18,13 +18,11 @@ const (
 	MinKeyFrames = 3
 	WaitForIDR   = 8 * time.Second
 
-	// Ring buffer capacity (frames). At 30fps this is ~10 seconds, covering 2–3 GOPs.
-	BufCap = 500
+	BufCap = 500 // at 50fps, 10sec of data
 
-	// Per-subscriber channel capacities, sized independently of the ring buffer.
 	EgressChCap = 250 // egress from ring buffer to subscriber goroutine (history burst + live)
-	LiveChCap   = 55  // live broadcast channel (~1 s jitter tolerance at 30fps)
-	OutChCap    = 250 // downstream output to HLS/SRT consumer (~5 s at 30fps)
+	LiveChCap   = 55
+	OutChCap    = 250
 )
 
 type subBuffer struct {
