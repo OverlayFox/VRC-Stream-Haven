@@ -17,7 +17,14 @@ import (
 const (
 	MinKeyFrames = 3
 	WaitForIDR   = 8 * time.Second
-	BufCap       = 500
+
+	// Ring buffer capacity (frames). At 30fps this is ~10 seconds, covering 2–3 GOPs.
+	BufCap = 500
+
+	// Per-subscriber channel capacities, sized independently of the ring buffer.
+	EgressChCap = 250 // egress from ring buffer to subscriber goroutine (history burst + live)
+	LiveChCap   = 55  // live broadcast channel (~1 s jitter tolerance at 30fps)
+	OutChCap    = 250 // downstream output to HLS/SRT consumer (~5 s at 30fps)
 )
 
 type subBuffer struct {
@@ -211,7 +218,7 @@ func (b *subBuffer) subscribe(upstreamCtx context.Context, startPos int, _ time.
 	}
 	firstFramePTS := first.Header().Pts
 
-	outCh := make(chan types.Frame, b.cap)
+	outCh := make(chan types.Frame, OutChCap)
 	b.wg.Go(func() {
 		defer CloseAndDrain(outCh)
 
@@ -224,15 +231,23 @@ func (b *subBuffer) subscribe(upstreamCtx context.Context, startPos int, _ time.
 
 		b.logger.Debug().Msgf("building prebuffer for new subscriber, prebuffer duration: '%02fsec'", preDur.Seconds())
 
+		drainPreBuf := func() {
+			for _, f := range preBuf {
+				f.Decommission()
+			}
+		}
 		for (lastPTS - firstFramePTS).Abs() < preDur {
 			select {
 			case <-b.ctx.Done():
+				drainPreBuf()
 				return
 			case <-upstreamCtx.Done():
+				drainPreBuf()
 				return
 			case frame, ok := <-ch:
 				if !ok {
-					break
+					drainPreBuf()
+					return
 				}
 				preBuf = append(preBuf, frame)
 				lastPTS = frame.Header().Pts

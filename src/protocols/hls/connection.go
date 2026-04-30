@@ -198,6 +198,9 @@ func (c *Connection) extractMetadata(videoCh, audioCh *chan types.Frame) (sps, p
 					}
 				}
 				*audioCh <- frame
+
+			case <-c.ctx.Done():
+				return
 			}
 		}
 	})

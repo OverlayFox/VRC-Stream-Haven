@@ -68,7 +68,7 @@ func (cb *circularBuffer) removeSubscriber(ch chan types.Frame) error {
 	cb.subMtx.Lock()
 	defer cb.subMtx.Unlock()
 	if liveCh, ok := cb.subs[ch]; ok {
-		close(ch)
+		CloseAndDrain(ch)
 		CloseAndDrain(liveCh)
 		delete(cb.subs, ch)
 		return nil
@@ -117,8 +117,8 @@ func (cb *circularBuffer) ReadFromPos(startPos int, upstreamCtx context.Context)
 	if startPos < 0 || startPos > cb.cap {
 		return nil, fmt.Errorf("%w: '%d'", ErrOutOfRange, startPos)
 	}
-	ch := make(chan types.Frame, cb.cap)
-	liveCh := make(chan types.Frame, cb.cap)
+	ch := make(chan types.Frame, EgressChCap)
+	liveCh := make(chan types.Frame, LiveChCap)
 	cb.wg.Go(func() {
 		defer func() {
 			err := cb.removeSubscriber(ch)

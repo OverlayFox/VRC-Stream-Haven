@@ -187,7 +187,7 @@ func (c *connection) close() {
 }
 
 func (c *connection) read() (chan packet.Packet, chan error) {
-	pktCh := make(chan packet.Packet, 6000)
+	pktCh := make(chan packet.Packet, 200)
 	errCh := make(chan error, 1)
 
 	c.wg.Go(func() {
