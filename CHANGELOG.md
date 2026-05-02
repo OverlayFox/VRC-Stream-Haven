@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- renamed project to VRC-Haven
 - optimised geo locator database load up to use less memory
 - improved Database cleanup
 

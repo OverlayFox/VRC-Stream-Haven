@@ -1,8 +1,21 @@
-# VRC-Stream-Haven
+<p align="center">
+  <img src="./assets/gophor_caspar.png" width="250" alt="VRC Haven Logo">
+</p>
 
-> A self-hosted CDN for VRChat streaming with intelligent geographic distribution
+<h1 align="center">VRC-Haven</h1>
 
-VRC-Stream-Haven is a distributed content delivery network designed for publishing RTSP signals to the web. <br>
+<p align="center">
+  <b>A CDN video streaming system build for easy deployment.</b>
+</p>
+
+<p align="center">
+  <a href="https://pkg.go.dev/github.com/OverlayFox/casparcg-amcp-go"><img src="https://pkg.go.dev/badge/github.com/OverlayFox/casparcg-amcp-go.svg" alt="Go Reference"></a>
+  <a href="https://goreportcard.com/report/github.com/OverlayFox/casparcg-amcp-go"><img src="https://goreportcard.com/badge/github.com/OverlayFox/casparcg-amcp-go" alt="Go Report Card"></a>
+  <a href="https://casparcg.com/"><img src="https://img.shields.io/badge/CasparCG-AMCP-blue.svg" alt="CasparCG AMCP"></a>
+  <a href="https://github.com/OverlayFox/casparcg-amcp-go/actions/workflows/go.yml"><img src="https://github.com/OverlayFox/casparcg-amcp-go/actions/workflows/go.yml/badge.svg" alt="Build Status"></a>
+</p>
+
+VRC-Haven is a distributed content delivery network designed for publishing RTSP signals to the web. <br>
 It enables multiple servers to work together as a "Haven," automatically routing viewers to the geographically closest server for optimal stream stability and reduced latency.
 
 ⚠️ **Early Development Notice**: This project is currently in pre-alpha stage. Expect bugs and missing features.
@@ -17,7 +30,7 @@ It enables multiple servers to work together as a "Haven," automatically routing
 
 ## Architecture
 
-VRC-Stream-Haven uses a hub-and-spoke model with two types of servers:
+VRC-Haven uses a hub-and-spoke model with two types of servers:
 
 ### Flagship (Main Server)
 
@@ -52,21 +65,21 @@ Broadcaster (SRT) → Flagship → Escort 1 → Viewers (nearby)
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/VRC-Stream-Haven.git
-cd VRC-Stream-Haven
+git clone https://github.com/yourusername/VRC-Haven.git
+cd VRC-Haven
 
 # Build the project
 make build
 
 # Or build manually
-go build -o vrc-stream-haven
+go build -o VRC-Haven
 ```
 
 ## Configuration
 
 ### IP2Location Database Setup (Recommended)
 
-VRC-Stream-Haven uses the [IP2Location LITE database](https://lite.ip2location.com) for IP geolocation to calculate distances between servers and viewers.
+VRC-Haven uses the [IP2Location LITE database](https://lite.ip2location.com) for IP geolocation to calculate distances between servers and viewers.
 
 > **Privacy Note**: Escort locations are stored in RAM and logs, but viewer locations are only calculated temporarily and not persisted.
 
@@ -92,13 +105,13 @@ The application will automatically check for and download database updates on st
 ### Running as Flagship
 
 ```bash
-./vrc-stream-haven flagship [options]
+./VRC-Haven flagship [options]
 ```
 
 ### Running as Escort
 
 ```bash
-./vrc-stream-haven escort --flagship-url=<url> --passphrase=<secret> [options]
+./VRC-Haven escort --flagship-url=<url> --passphrase=<secret> [options]
 ```
 
 _(Full command-line documentation coming soon)_
