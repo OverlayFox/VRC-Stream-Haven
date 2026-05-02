@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- added pyroscope for profile
 - added HLS server and connection play out for last-mile stream instead of RTSP
 - added SRT-Pull for escorts
 
 ### Changed
 
+- optimised geo locator database load up to use less memory
 - improved Database cleanup
 
 ### Removed

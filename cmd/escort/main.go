@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"time"
 
+	pyroscope "github.com/grafana/pyroscope-go"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 
@@ -16,17 +17,39 @@ import (
 
 var logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}).With().Str("component", "escort").Timestamp().Logger()
 
-func loadEnv() {
-	err := godotenv.Load()
+func startPyroscope(serverAddress string) {
+	logger.Info().Str("address", serverAddress).Msg("Starting Pyroscope profiler")
+	_, err := pyroscope.Start(pyroscope.Config{
+		ApplicationName: "vrc-stream-haven.escort",
+		ServerAddress:   serverAddress,
+		ProfileTypes: []pyroscope.ProfileType{
+			pyroscope.ProfileCPU,
+			pyroscope.ProfileAllocObjects,
+			pyroscope.ProfileAllocSpace,
+			pyroscope.ProfileInuseObjects,
+			pyroscope.ProfileInuseSpace,
+			pyroscope.ProfileGoroutines,
+		},
+	})
 	if err != nil {
+		logger.Error().Err(err).Msg("Failed to start Pyroscope profiler")
+	}
+}
+
+func loadEnv() {
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		logger.Panic().Err(err).Msg("Error loading .env file")
 	}
 }
 
 func main() {
 	logger.Info().Msg("Starting in Escort mode")
-
 	loadEnv()
+
+	pyroscopeAddr := os.Getenv("PYROSCOPE_SERVER_ADDRESS")
+	if pyroscopeAddr != "" {
+		startPyroscope(pyroscopeAddr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	haven, err := haven.NewHaven(ctx, logger, nil, "thisisaverysecurepassphrase", "test")

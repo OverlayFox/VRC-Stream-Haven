@@ -170,12 +170,15 @@ func (d *MpegTsDemuxer) processPES(data *astits.DemuxerData, frameChan chan type
 	if frames == nil {
 		return nil
 	}
-	for _, fr := range frames {
+	for i, fr := range frames {
 		select {
 		case frameChan <- fr:
 		case <-d.ctx.Done():
 			fr.Decommission()
 		default:
+			for _, remaining := range frames[i+1:] {
+				remaining.Decommission()
+			}
 			fr.Decommission()
 			return fmt.Errorf("frame channel send error: %w", d.ctx.Err())
 		}
@@ -198,6 +201,8 @@ func (d *MpegTsDemuxer) buildFrames(data *astits.DemuxerData, pidTypes map[uint1
 	}
 	payload := make([]byte, len(data.PES.Data))
 	copy(payload, data.PES.Data)
+	data.PES.Data = nil // allow GC to reclaim original slice memory
+
 	if codecID == codec.CODECID_AUDIO_AAC {
 		return d.aacFrames.SplitFrameWithTiming(payload, pts, dts), nil
 	}

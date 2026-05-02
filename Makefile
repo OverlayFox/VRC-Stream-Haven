@@ -1,17 +1,22 @@
 .DEFAULT_GOAL := all
 
-.PHONY: all build test lint tidy verify clean
+PPROF_DIR            ?= .pprof
+PPROF_PORT           ?= 6060
+PPROF_PROFILE        ?= heap
+PPROF_DIFF_HTTP_PORT ?= 8081
 
-all: tidy verify lint build test
 
+.PHONY: build
 build:
 	@echo "==> Building..."
 	go build -v ./...
 
+.PHONY: test
 test:
 	@echo "==> Running tests with race detector..."
 	go test -race -v ./...
 
+.PHONY: lint
 lint:
 	golangci-lint run 
 
